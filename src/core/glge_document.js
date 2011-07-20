@@ -159,18 +159,18 @@ GLGE.Document.prototype.loaded=function(url,responceXML){
 		}
 	}
 	if(this.loadCount==0){
-		this.finishedLoading();
+		this.finishedLoading(url);
 	}
 }
 /**
 * Called when all documents have finished loading
 * @private
 */
-GLGE.Document.prototype.finishedLoading=function(){
+GLGE.Document.prototype.finishedLoading=function(url){
 	for(var i=0; i<this.listeners.length;i++){
 		this.listeners[i](this.listeners.rootURL);
 	}
-	this["onLoad"]();
+	this["onLoad"](url);
 }
 /**
 * Called when all documents have finished loading
