@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_text.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -47,9 +47,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.Text=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.canvas=document.createElement("canvas");
 	this.color={r:1.0,g:1.0,b:1.0};
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Placeable,GLGE.Text);
 GLGE.augment(GLGE.Animatable,GLGE.Text);
@@ -65,6 +65,7 @@ GLGE.Text.prototype.font="Times";
 GLGE.Text.prototype.size=100;
 GLGE.Text.prototype.pickType=GLGE.TEXT_TEXTPICK;
 GLGE.Text.prototype.pickable=true;
+GLGE.Text.prototype.alpha=1;
 
 /**
 * Gets the pick type for this text
@@ -172,6 +173,23 @@ GLGE.Text.prototype.getColor=function(){
 };
 
 /**
+* Sets the alpha
+* @param {Number} b The new alpha level 0-1
+*/
+GLGE.Text.prototype.setAlpha=function(value){
+	this.alpha=value;
+	return this;
+};
+
+/**
+* Gets the alpha
+* @returns The alpha level
+*/
+GLGE.Text.prototype.getAlpha=function(){
+	return this.alpha;
+};
+
+/**
 * Sets the Z Transparency of this text
 * @param {boolean} value Does this object need blending?
 */
@@ -212,16 +230,24 @@ GLGE.Text.prototype.GLGenerateShader=function(gl){
 	var fragStr="#ifdef GL_ES\nprecision highp float;\n#endif\n";
 	fragStr=fragStr+"uniform sampler2D TEXTURE;\n";
 	fragStr=fragStr+"varying vec2 texcoord;\n";
+	fragStr=fragStr+"uniform mat4 Matrix;\n";
 	fragStr=fragStr+"varying vec4 pos;\n";
 	fragStr=fragStr+"uniform float far;\n";
+	fragStr=fragStr+"uniform bool depthrender;\n";
+	fragStr=fragStr+"uniform float distance;\n";
 	fragStr=fragStr+"uniform int picktype;\n";
 	fragStr=fragStr+"uniform vec3 pickcolor;\n";
 	fragStr=fragStr+"uniform vec3 color;\n";
+	fragStr=fragStr+"uniform float alpha;\n";
 	fragStr=fragStr+"void main(void){\n";
-	fragStr=fragStr+"float alpha=texture2D(TEXTURE,texcoord).a;\n";
+	fragStr=fragStr+"float ob=pow(min(1.0,abs(dot(normalize(Matrix[2].rgb),vec3(0.0,0.0,1.0)))*2.0),1.5);\n";
+	fragStr=fragStr+"float a=texture2D(TEXTURE,texcoord).a*alpha*ob;\n";
 	fragStr=fragStr+"if(picktype=="+GLGE.TEXT_BOXPICK+"){gl_FragColor = vec4(pickcolor,1.0);}"
 	fragStr=fragStr+"else if(picktype=="+GLGE.TEXT_TEXTPICK+"){if(alpha<1.0) discard; gl_FragColor = vec4(pickcolor,alpha);}"
-	fragStr=fragStr+"else{gl_FragColor = vec4(color.rgb*alpha,alpha);};\n";
+	fragStr=fragStr+"else{gl_FragColor = vec4(color.rgb,a);};\n";
+	fragStr=fragStr+"if (depthrender) { if(a<0.5) discard; float depth = gl_FragCoord.z / gl_FragCoord.w;\n";
+	fragStr=fragStr+"vec4 rgba=fract(depth/distance * vec4(16777216.0, 65536.0, 256.0, 1.0));\n";
+	fragStr=fragStr+"gl_FragColor=rgba-rgba.rrgb*vec4(0.0,0.00390625,0.00390625,0.00390625);}\n";
 	fragStr=fragStr+"}\n";
 	
 	this.GLFragmentShader=gl.createShader(gl.FRAGMENT_SHADER);
@@ -275,7 +301,7 @@ GLGE.Text.prototype.updateCanvas=function(gl){
 	canvas.height=this.size*1.2;
 	 ctx = canvas.getContext("2d");
 	ctx.textBaseline="top";
-	ctx.font = this.size+"px "+this.font;
+	ctx.font = (this.extra||"") + " " + this.size+"px "+this.font;
 	this.aspect=canvas.width/canvas.height;
 	ctx.fillText(this.text, 0, 0);   
 	
@@ -285,6 +311,8 @@ GLGE.Text.prototype.updateCanvas=function(gl){
 	catch(e){gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas,null);}
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.bindTexture(gl.TEXTURE_2D, null);
@@ -297,8 +325,8 @@ GLGE.Text.prototype.updateCanvas=function(gl){
 GLGE.Text.prototype.GLRender=function(gl,renderType,pickindex){
 	if(!this.gl){
 		this.GLInit(gl);
-	}
-	if(renderType==GLGE.RENDER_DEFAULT || renderType==GLGE.RENDER_PICK){	
+	}	
+	if(renderType==GLGE.RENDER_DEFAULT || renderType==GLGE.RENDER_PICK || renderType==GLGE.RENDER_SHADOW){
 		//if look at is set then look
 		if(this.lookAt) this.Lookat(this.lookAt);
 		
@@ -336,6 +364,14 @@ GLGE.Text.prototype.GLRender=function(gl,renderType,pickindex){
 		}else{
 			GLGE.setUniform(gl,"1i",GLGE.getUniformLocation(gl,this.GLShaderProgram, "picktype"), 0);	
 		}
+		var distance=gl.scene.camera.getFar();
+		GLGE.setUniform(gl,"1f",GLGE.getUniformLocation(gl,this.GLShaderProgram, "distance"), distance);
+		if(renderType==GLGE.RENDER_SHADOW){
+			GLGE.setUniform(gl,"1i",GLGE.getUniformLocation(gl,this.GLShaderProgram, "depthrender"), 1);
+		}else{
+			GLGE.setUniform(gl,"1i",GLGE.getUniformLocation(gl,this.GLShaderProgram, "depthrender"), 0);
+		}
+		
 		
 		if(!this.GLShaderProgram.glarrays) this.GLShaderProgram.glarrays={};
 
@@ -353,10 +389,13 @@ GLGE.Text.prototype.GLRender=function(gl,renderType,pickindex){
 		if(!this.GLShaderProgram.glarrays.pMatrix) this.GLShaderProgram.glarrays.pMatrix=new Float32Array(gl.scene.camera.getProjectionMatrix());
 			else GLGE.mat4gl(gl.scene.camera.getProjectionMatrix(),this.GLShaderProgram.glarrays.pMatrix);
 		GLGE.setUniformMatrix(gl,"Matrix4fv",mUniform, true, this.GLShaderProgram.glarrays.pMatrix);
-
-		
+				
 		var farUniform = GLGE.getUniformLocation(gl,this.GLShaderProgram, "far");
 		GLGE.setUniform(gl,"1f",farUniform, gl.scene.camera.getFar());
+			
+		var alphaUniform = GLGE.getUniformLocation(gl,this.GLShaderProgram, "alpha");
+		GLGE.setUniform(gl,"1f",alphaUniform, this.alpha);
+		
 		//set the color
 		GLGE.setUniform3(gl,"3f",GLGE.getUniformLocation(gl,this.GLShaderProgram, "color"), this.color.r,this.color.g,this.color.b);
 		
@@ -385,7 +424,7 @@ GLGE.Text.prototype.createPlane=function(gl){
 	//create the faces
 	if(!this.GLfaces) this.GLfaces = gl.createBuffer();
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.GLfaces);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0,1,2,2,3,0]), gl.STATIC_DRAW);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([2,1,0,0,3,2]), gl.STATIC_DRAW);
 	this.GLfaces.itemSize = 1;
 	this.GLfaces.numItems = 6;
 }

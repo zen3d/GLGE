@@ -1006,6 +1006,14 @@ GLGE.makePerspective=function(fovy, aspect, near, far){
 	return GLGE.makeFrustum(xmin, xmax, ymin, ymax, near, far);
 };
 
+GLGE.makePerspectiveX=function(fovx, aspect, near, far){
+	var xmax = near * Math.tan(fovx * 0.00872664625972);
+	var xmin = -xmax;
+	var ymin = xmin / aspect;
+	var ymax = xmax / aspect;
+	return GLGE.makeFrustum(xmin, xmax, ymin, ymax, near, far);
+};
+
 GLGE.matrix2Scale=function(m){
 	var m1=m[0];
 	var m2=m[1];
@@ -1276,9 +1284,9 @@ GLGE.getDirLightProjection=function(cvp,light,projectedDistance,distance){
 	var pointTransform=GLGE.mulMat4(light,GLGE.inverseMat4(cvp));
 	var min=[0,0,0];
 	var max=[0,0,0];
-	for(x=0;x<2;x++){
-		for(y=0;y<2;y++){
-			for(z=0;z<2;z++){
+	for(var x=0;x<2;x++){
+		for(var y=0;y<2;y++){
+			for(var z=0;z<2;z++){
 				var vec=GLGE.mulMat4Vec4(pointTransform,[x*2-1,y*2-1,z*projectedDistance,1]);
 				vec[0]=vec[0]/vec[3];vec[1]=vec[1]/vec[3];vec[2]=vec[2]/vec[3];
 				min[0]=min[0] > vec[0] ? vec[0] : min[0];
@@ -1406,8 +1414,12 @@ var parseFloat2=function(val){
 * @param {object} obj2 Destination Object
 */
 GLGE.augment=function(obj1,obj2){
-	for(proto in obj1.prototype){
-		obj2.prototype[proto]=obj1.prototype[proto];
+	obj2.prototype.baseclass = obj1;
+	for(var proto in obj1.prototype){
+		if(!obj2.prototype[proto]) // do not overwrite functions of the derived objects
+			obj2.prototype[proto]=obj1.prototype[proto];
+		else // Attach those to the baseclass instead. Use 'call(this)' to call baseclass methods
+			obj2.prototype.baseclass[proto]=obj1.prototype[proto];
 	}
 }
 
@@ -1478,6 +1490,14 @@ GLGE.DRAW_LINESTRIPS=4;
 * @description Enumeration for point rendering
 */
 GLGE.DRAW_POINTS=5;
+
+/**
+* @constant 
+* @description Enumeration for point rendering
+*/
+GLGE.DRAW_TRIANGLESTRIP=6;
+
+
 
 
 /**
@@ -1645,6 +1665,12 @@ GLGE.error=function(error){
     //do not use a modal dialog to indicate this users can override GLGE.error if they desire
 };
 
+GLGE.warning=function(warning){
+    if (console&&console.log)
+        console.log("GLGE warning: "+warning);
+    //do not use a modal dialog to indicate this users can override GLGE.warning if they desire
+};
+
 /**
 * @namespace Holds the global asset store
 */
@@ -1673,6 +1699,10 @@ GLGE.Assets.createUUID=function(){
 * @function registers a new asset
 */
 GLGE.Assets.registerAsset=function(obj,uid){
+	if(typeof uid=="object"){
+		if(obj._) obj._(uid);
+		uid=uid.uid;
+	}
 	if(!uid){
 		uid=GLGE.Assets.createUUID();
 	};
@@ -1984,7 +2014,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_event.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -2127,7 +2157,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_animatable.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -2172,7 +2202,7 @@ GLGE.Animatable.prototype.blendTo=function(properties,duration,blendFunction){
 	var animation=new GLGE.AnimationVector();
 	var curve;
 	var point;
-	for(prop in properties){
+	for(var prop in properties){
 		curve=new GLGE.AnimationCurve();
 		curve.setChannel(prop);
 		point=new GLGE.LinearPoint();
@@ -2325,7 +2355,7 @@ GLGE.Animatable.prototype.animate=function(now,nocache){
 						&& this.animation.curves["ScaleX"] && this.animation.curves["ScaleY"] && this.animation.curves["ScaleZ"]
 						&& this.animation.curves["QuatX"] && this.animation.curves["QuatY"] && this.animation.curves["QuatZ"] && this.animation.curves["QuatW"]){
 						//just set matrix
-						for(property in this.animation.curves){
+						for(var property in this.animation.curves){
 							if(this["set"+property]){
 								var value=this.animation.curves[property].getValue(parseFloat(frame));
 								switch(property){
@@ -2537,7 +2567,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_document.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -2560,6 +2590,7 @@ GLGE.Document.prototype.documents=null;
 GLGE.Document.prototype.rootURL=null;
 GLGE.Document.prototype.loadCount=0;
 GLGE.Document.prototype.version=0;
+GLGE.Document.prototype.preloader=null;
 /**
 * This is just a fix for a bug in webkit
 * @param {string} id the id name to get
@@ -2605,7 +2636,7 @@ GLGE.Document.prototype.getAbsolutePath=function(path,relativeto){
 			initpath=[];
 		}
 		var locpath=path.split("/");
-		for(i=0;i<locpath.length;i++){
+		for(var i=0;i<locpath.length;i++){
 			if(locpath[i]=="..") initpath.pop();
 				else if(locpath[i]!="") initpath.push(locpath[i]);
 		}
@@ -2615,8 +2646,13 @@ GLGE.Document.prototype.getAbsolutePath=function(path,relativeto){
 /**
 * Loads the root document
 * @param {string} url URL of the resource to load
+* @param {object} preload Decides if a preloader is used. true: default preloader, object: specialized preloader
 */
-GLGE.Document.prototype.load=function(url){
+GLGE.Document.prototype.load=function(url, preload){
+	
+	if(preload)
+		this.usePreloader(preload);
+	
 	this.documents=[];
 	this.rootURL=url;
 	this.loadDocument(url,null);
@@ -2629,24 +2665,32 @@ GLGE.Document.prototype.load=function(url){
 GLGE.Document.prototype.loadDocument=function(url,relativeto){
 	this.loadCount++;
 	url=this.getAbsolutePath(url,relativeto);
-	var req = new XMLHttpRequest();
-	if(req) {
-		req.docurl=url;
-		req.docObj=this;
-		req.overrideMimeType("text/xml");
-		req.onreadystatechange = function() {
-			if(this.readyState  == 4)
-			{
-				if(this.status  == 200 || this.status==0){
-					this.responseXML.getElementById=this.docObj.getElementById;
-					this.docObj.loaded(this.docurl,this.responseXML);
-				}else{ 
-					GLGE.error("Error loading Document: "+this.docurl+" status "+this.status);
+	
+	if(this.preloader)
+	{
+		this.preloader.loadXMLFile(url);
+	}
+	else
+	{
+		var req = new XMLHttpRequest();
+		if(req) {
+			req.docurl=url;
+			req.docObj=this;
+			req.overrideMimeType("text/xml");
+			req.onreadystatechange = function() {
+				if(this.readyState  == 4)
+				{
+					if(this.status  == 200 || this.status==0){
+						this.responseXML.getElementById=this.docObj.getElementById;
+						this.docObj.loaded(this.docurl,this.responseXML);
+					}else{ 
+						GLGE.error("Error loading Document: "+this.docurl+" status "+this.status);
+					}
 				}
-			}
-		};
-		req.open("GET", url, true);
-		req.send("");
+			};
+			req.open("GET", url, true);
+			req.send("");
+		}
 	}	
 }
 /**
@@ -2657,7 +2701,7 @@ GLGE.Document.prototype.loadDocument=function(url,relativeto){
 */
 GLGE.Document.prototype.loaded=function(url,responceXML){
 	this.loadCount--;
-	this.documents[url]={xml:responceXML};
+	this.documents[url]={'xml':responceXML, 'url':url};
 	var root=responceXML.getElementsByTagName("glge");
 	if(root[0] && root[0].hasAttribute("version")) this.version=parseFloat(root[0].getAttribute("version"));
 	var imports=responceXML.getElementsByTagName("import");
@@ -2686,6 +2730,41 @@ GLGE.Document.prototype.finishedLoading=function(){
 * @event
 */
 GLGE.Document.prototype["onLoad"]=function(){};
+/**
+* Use a preloader
+* @param {object} [object]	This object contains optional parameters. Example1: {XMLQuota: 0.30, XMLBytes: 852605}, Example2: {XMLQuota: 0.13, numXMLFiles: 1}, Example3: true
+*/
+GLGE.Document.prototype.usePreloader = function(args){
+	this.preloader = new GLGE.DocumentPreloader(this, args);
+	var that = this;
+	this.addLoadListener(function(url){that.preloadImages.call(that);});	
+}
+/**
+* Start preloading images. This function should be called when the document (xml) is loaded.
+* @private
+*/
+GLGE.Document.prototype.preloadImages = function(){
+	var imageArrays = []; // 2 dimensional
+	var docUrls = [];
+	
+	// create an array of all images
+	for(var doc in this.documents){
+		if(this.documents[doc].xml){
+			imageArrays.push(this.documents[doc].xml.getElementsByTagName("texture"));
+			docUrls.push(this.documents[doc].url);
+		}
+	}
+	
+	// add images to the preloader
+	for(var a in imageArrays){
+		for(var i=0; i<imageArrays[a].length; i++){
+			var src = imageArrays[a][i].getAttribute("src");
+			if(src)
+				this.preloader.addImage(this.getAbsolutePath(src, docUrls[a]));
+		}
+	}
+	this.preloader.loadImages();
+}
 /**
 * Converts and attribute name into a class name
 * @param {string} name attribute name to convert
@@ -2758,7 +2837,7 @@ GLGE.Document.prototype.addChildren=function(Obj){
 GLGE.Document.prototype.getElement=function(ele,noerrors){
 	var docele,doc;
 	if(typeof(ele)=="string"){
-		for(doc in this.documents){
+		for(var doc in this.documents){
 			if(this.documents[doc].xml){
 				docele=this.documents[doc].xml.getElementById(ele);
 				if(docele){
@@ -2862,7 +2941,7 @@ GLGE.Document.prototype.parseArray=function(node){
 		child=child.nextSibling;
 		if(currentArray[0]=="") currentArray.unshift();
 		if(child) prev=currentArray.pop();
-		for(i=0;i<currentArray.length;i++) output.push(currentArray[i]);
+		for(var i=0;i<currentArray.length;i++) output.push(currentArray[i]);
 	}
 	return output;
 }
@@ -2895,6 +2974,9 @@ GLGE.Document.prototype.getMesh=function(ele){
 					break;
 				case "faces":
 					ele.object.setFaces(this.parseArray(child));
+					break;
+				case "color":
+					ele.object.setVertexColors(this.parseArray(child));
 					break;
 				case "joint_names":
 					var names=this.parseArray(child);
@@ -2985,7 +3067,8 @@ GLGE.Document.prototype.parseScript=function(id){
 }
 
 
-})(GLGE);/*
+})(GLGE);
+/*
 GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
@@ -3015,7 +3098,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_placeable.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -3185,6 +3268,15 @@ GLGE.Placeable.prototype.Lookat=function(value){
 					0, 0, 0, 1]));
 }
 /**
+* Sets the transform mode
+* @param {mode} value the transform mode
+*/
+GLGE.Placeable.prototype.setTransformMode=function(value){
+	this.mode=value;
+	this.matrix=null;
+	return this;
+}
+/**
 * Gets the euler rotation order
 * @returns {number} the objects rotation matrix
 */
@@ -3197,8 +3289,6 @@ GLGE.Placeable.prototype.getRotOrder=function(){
 */
 GLGE.Placeable.prototype.setRotOrder=function(value){
 	this.rotOrder=value;
-	//GLGE.reuseMatrix4(this.matrix);
-	//GLGE.reuseMatrix4(this.rotmatrix);
 	this.matrix=null;
 	this.rotmatrix=null;
 	return this;
@@ -3730,7 +3820,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_jsonloader.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -3812,7 +3902,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_group.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -3855,12 +3945,12 @@ GLGE.G_ROOT=2;
 * @augments GLGE.JSONLoader
 */
 GLGE.Group=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.children=[];
     var that=this;
     this.downloadComplete=function(){
         if(that.isComplete()) that.fireEvent("downloadComplete");
     }
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Placeable,GLGE.Group);
 GLGE.augment(GLGE.Animatable,GLGE.Group);
@@ -3869,7 +3959,25 @@ GLGE.augment(GLGE.JSONLoader,GLGE.Group);
 GLGE.Group.prototype.children=null;
 GLGE.Group.prototype.className="Group";
 GLGE.Group.prototype.type=GLGE.G_NODE;
+GLGE.Group.prototype.visible=true;
 
+
+/**
+* Sets the groups visibility
+* @param {boolean} visable flag to indicate the objects visibility
+*/
+GLGE.Group.prototype.setVisible=function(visible){
+	this.visible=visible;
+	return this;
+}
+
+/**
+* Gets the groups visibility
+* @returns  flag to indicate the objects visibility
+*/
+GLGE.Group.prototype.getVisible=function(){
+	return this.visaible;
+}
 
 /**
 * Checks  if resources have finished downloading
@@ -3944,10 +4052,14 @@ GLGE.Group.prototype.getObjects=function(objects){
 	if(!objects) objects=[];
 	for(var i=0; i<this.children.length;i++){
 		if(this.children[i].className=="Object" || this.children[i].className=="Text" || this.children[i].toRender){
-		if(this.children[i].renderFirst) objects.unshift(this.children[i]);
-			else	objects.push(this.children[i]);
+			if(this.children[i].visible || this.children[i].visible==undefined){
+				if(this.children[i].renderFirst) objects.unshift(this.children[i]);
+					else	objects.push(this.children[i]);
+			}
 		}else if(this.children[i].getObjects){
-			this.children[i].getObjects(objects);
+			if(this.children[i].visible || this.children[i].visible==undefined){
+				this.children[i].getObjects(objects);
+			}
 		}
 	}
 	return objects;
@@ -3985,6 +4097,8 @@ GLGE.Group.prototype.updateAllPrograms=function(){
 */
 GLGE.Group.prototype.addChild=function(object){
 	if(object.parent) object.parent.removeChild(object);
+	if(this.noCastShadows!=null && object.noCastShadows==null && object.setCastShadows) object.setCastShadows(!this.noCastShadows);
+	
 	GLGE.reuseMatrix4(object.matrix);
 	object.matrix=null; //clear any cache
 	object.parent=this;
@@ -4084,7 +4198,7 @@ GLGE.Group.prototype.setPickable=function(pickable){
 	this.pickable=pickable;
 	return this;
 }
- 
+
 
 })(GLGE);/*
 GLGE WebGL Graphics Engine
@@ -4116,7 +4230,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_messages.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -4247,7 +4361,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_action.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -4263,8 +4377,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.Action=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.channels=[];
+	GLGE.Assets.registerAsset(this,uid);
 };
 GLGE.augment(GLGE.QuickNotation,GLGE.Action);
 GLGE.augment(GLGE.JSONLoader,GLGE.Action);
@@ -4354,7 +4468,8 @@ GLGE.Action.prototype.removeActionChannel=function(channel){
 };
 
 
-})(GLGE);/*
+})(GLGE);
+/*
 GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
@@ -4384,7 +4499,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_actionchannel.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -4432,7 +4547,8 @@ GLGE.ActionChannel.prototype.getAnimation=function(){
 	return this.animation;
 };
 
-})(GLGE);/*
+})(GLGE);
+/*
 GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
@@ -4462,7 +4578,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_animationcurve.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -4479,10 +4595,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.AnimationCurve=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.keyFrames=[];
 	this.solutions={};
 	this.caches={};
+	GLGE.Assets.registerAsset(this,uid);
 };
 GLGE.augment(GLGE.QuickNotation,GLGE.AnimationCurve);
 GLGE.augment(GLGE.JSONLoader,GLGE.AnimationCurve);
@@ -4690,7 +4806,8 @@ GLGE.AnimationCurve.prototype.atX=function(x,C1,C2,C3,C4){
 	return this.getBezier(this.Quad3Solve(a,b,c,d),C1,C2,C3,C4);
 };
 
-})(GLGE);/*
+})(GLGE);
+/*
 GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
@@ -4720,7 +4837,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_animationvector.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -4735,8 +4852,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.AnimationVector=function(uid){
-    GLGE.Assets.registerAsset(this,uid);
     this.curves={};
+    GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.AnimationVector);
 GLGE.augment(GLGE.JSONLoader,GLGE.AnimationVector);
@@ -4792,7 +4909,8 @@ GLGE.AnimationVector.prototype.getStartFrame=function(){
 	return this.startFrame;
 }
 
-})(GLGE);/*
+})(GLGE);
+/*
 GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
@@ -4822,7 +4940,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_animationpoints.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -4938,7 +5056,8 @@ GLGE.StepPoint=function(x,value){
 	this.y=value;
 };
 
-})(GLGE);/*
+})(GLGE);
+/*
 GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
@@ -4987,7 +5106,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.Events
 */
 GLGE.Mesh=function(uid,windingOrder){
-	GLGE.Assets.registerAsset(this,uid);
 	this.GLbuffers=[];
 	this.buffers=[];
 	this.framePositions=[];
@@ -5000,7 +5118,9 @@ GLGE.Mesh=function(uid,windingOrder){
     if (windingOrder!==undefined)
         this.windingOrder=windingOrder;
     else
-        this.windingOrder=GLGE.Mesh.WINDING_ORDER_CLOCKWISE;
+        this.windingOrder=GLGE.Mesh.WINDING_ORDER_UNKNOWN;
+
+	GLGE.Assets.registerAsset(this,uid);
 };
 
 GLGE.Mesh.WINDING_ORDER_UNKNOWN=2;
@@ -5032,6 +5152,7 @@ GLGE.Mesh.prototype.loaded=false;
 * @returns {GLGE.BoundingVolume} 
 */
 GLGE.Mesh.prototype.getBoundingVolume=function(){
+	if(!this.positions) return new GLGE.BoundingVolume(0,0,0,0,0,0);
 	if(!this.boundingVolume){
 		var minX,maxX,minY,maxY,minZ,maxZ;
 		var positions=this.positions;
@@ -5146,7 +5267,7 @@ GLGE.Mesh.prototype.clearBuffers=function(){
 	//if(this.GLfaces) this.gl.deleteBuffer(this.GLfaces);
 	this.GLFaces=null;
 	delete(this.GLFaces);
-	for(i in this.buffers){
+	for(var i in this.buffers){
 		//if(this.buffers[i].GL) this.gl.deleteBuffer(this.buffers[i].GL);
 		this.buffers[i]=null;
 		delete(this.buffers[i]);
@@ -5159,6 +5280,7 @@ GLGE.Mesh.prototype.clearBuffers=function(){
 * @param {Number[]} jsArray the UV coords in a 1 dimentional array
 */
 GLGE.Mesh.prototype.setUV=function(jsArray){
+	this.uv1set=jsArray;
 	var idx=0;
 	for(var i=0; i<jsArray.length;i=i+2){
 		this.UV[idx]=jsArray[i];
@@ -5175,6 +5297,7 @@ GLGE.Mesh.prototype.setUV=function(jsArray){
 * @param {Number[]} jsArray the UV coords in a 1 dimentional array
 */
 GLGE.Mesh.prototype.setUV2=function(jsArray){
+	this.uv2set=jsArray;
 	var idx=0;
 	for(var i=0; i<jsArray.length;i=i+2){
 		if(!this.UV[idx]) this.UV[idx]=jsArray[i];
@@ -5197,6 +5320,8 @@ GLGE.Mesh.prototype.setPositions=function(jsArray,frame){
 	if(frame==0) this.positions=jsArray;
 	this.framePositions[frame]=jsArray;
 	this.setBuffer("position"+frame,jsArray,3,true);
+	this.boundingVolume=null;
+	this.fireEvent("updatebound");
 	return this;
 }
 /**
@@ -5242,7 +5367,8 @@ GLGE.Mesh.prototype.setTangents=function(jsArray,frame){
 */
 GLGE.Mesh.prototype.setBuffer=function(bufferName,jsArray,size,exclude){
 	//make sure all jsarray items are floats
-	for(var i=0;i<jsArray.length;i++) jsArray[i]=parseFloat(jsArray[i]);
+	if(typeof jsArray[0] !="number") for(var i=0;i<jsArray.length;i++) jsArray[i]=parseFloat(jsArray[i]);
+	
 	var buffer;
 	for(var i=0;i<this.buffers.length;i++){
 		if(this.buffers[i].name==bufferName) buffer=i;
@@ -5411,7 +5537,8 @@ GLGE.Mesh.prototype.GLSetFaceBuffer=function(gl){
 GLGE.Mesh.prototype.GLSetBuffer=function(gl,bufferName,jsArray,size){
 	if(!this.GLbuffers[bufferName]) this.GLbuffers[bufferName] = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.GLbuffers[bufferName]);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(jsArray), gl.STATIC_DRAW);
+	if(!jsArray.byteLength) jsArray=new Float32Array(jsArray);
+	gl.bufferData(gl.ARRAY_BUFFER, jsArray, gl.STATIC_DRAW);
 	this.GLbuffers[bufferName].itemSize = size;
 	this.GLbuffers[bufferName].numItems = jsArray.length/size;
 };
@@ -5463,6 +5590,143 @@ GLGE.Mesh.prototype.calcNormals=function(){
 	}
 }
 /**
+* Calculates a ambient occlution effect and sets the vertex color with AO level
+*/
+GLGE.Mesh.prototype.calcFauxAO=function(){	
+	this.optimize();
+	
+	//calculate ambient color based on vertex angles
+	var verts=this.positions;
+	var faces=this.faces.data;
+	var normals=this.normals;
+	
+	var idx=[];
+	var len=verts.length/3
+	for(var i=0;i<len;i++){
+		idx.push([]);
+	}
+	for(var i=0;i<faces.length;i=i+3){
+		idx[faces[i]].push(faces[i+1]);
+		idx[faces[i]].push(faces[i+2]);
+		idx[faces[i+1]].push(faces[i]);
+		idx[faces[i+1]].push(faces[i+2]);
+		idx[faces[i+2]].push(faces[i]);
+		idx[faces[i+2]].push(faces[i+1]);
+	}
+	var ao=[];
+	for(var i=0;i<len;i++){
+		var AOfactor=0;
+		var normal=[normals[i*3],normals[i*3+1],normals[i*3+2]];
+		for(var j=0;j<idx[i].length;j++){
+			var f=idx[i][j];
+			var v=[verts[f*3]-verts[i*3],verts[f*3+1]-verts[i*3+1],verts[f*3+2]-verts[i*3+2]];
+			v=GLGE.toUnitVec3(v);
+			AOfactor+=v[0]*normal[0]+v[1]*normal[1]+v[2]*normal[2];
+		}
+		AOfactor/=idx[i].length;
+		AOfactor=1.0-(AOfactor+1)*0.5;
+		ao.push(AOfactor);
+		ao.push(AOfactor);
+		ao.push(AOfactor);
+		ao.push(1);
+	}
+	this.setVertexColors(ao);
+}
+/**
+* optimize geometry
+* @private
+*/
+GLGE.Mesh.prototype.optimize=function(){
+	var verts=this.positions;
+	var normals=this.normals;
+	var faces=this.faces.data;
+	var tangents=this.tangents;
+	var uv1=this.uv1set;
+	var uv2=this.uv2set;
+	//expand out the faces
+	var vertsTemp=[];
+	var normalsTemp=[];
+	var uv1Temp=[];
+	var uv2Temp=[];
+	var tangentsTemp=[];
+	if(faces){
+		for(var i=0;i<faces.length;i++){
+			vertsTemp.push(verts[faces[i]*3]);
+			vertsTemp.push(verts[faces[i]*3+1]);
+			vertsTemp.push(verts[faces[i]*3+2]);
+			normalsTemp.push(normals[faces[i]*3]);
+			normalsTemp.push(normals[faces[i]*3+1]);
+			normalsTemp.push(normals[faces[i]*3+2]);
+			if(tangents && tangents.length>0){
+				tangentsTemp.push(tangents[faces[i]*3]);
+				tangentsTemp.push(tangents[faces[i]*3+1]);
+				tangentsTemp.push(tangents[faces[i]*3+2]);
+			}
+			if(uv1){
+				uv1Temp.push(uv1[faces[i]*2]);
+				uv1Temp.push(uv1[faces[i]*2+1]);
+			}
+			if(uv2){
+				uv2Temp.push(uv2[faces[i]*2]);
+				uv2Temp.push(uv2[faces[i]*2+1]);
+			}
+		}
+	}else{
+		vertsTemp=verts;
+		normalsTemp=normals;
+		tangentsTemp=tangents;
+		uv1Temp=uv1;
+		uv2Temp=uv2;
+	}
+
+	var newVerts=[];
+	var newNormals=[];
+	var newFaces=[];
+	var newUV1s=[];
+	var newUV2s=[];
+	var newTangents=[];
+	var stack=[];
+	
+	for(var i=0;i<vertsTemp.length;i=i+3){
+		if(uv1 && uv2){
+			var idx=[vertsTemp[i],vertsTemp[i+1],vertsTemp[i+2],normalsTemp[i],normalsTemp[i+1],normalsTemp[i+2],uv1Temp[i/3*2],uv1Temp[i/3*2+1]].join(" ");
+		}else if(uv1){
+			var idx=[vertsTemp[i],vertsTemp[i+1],vertsTemp[i+2],normalsTemp[i],normalsTemp[i+1],normalsTemp[i+2],uv1Temp[i/3*2],uv1Temp[i/3*2+1]].join(" ");
+		}else{
+			var idx=[vertsTemp[i],vertsTemp[i+1],vertsTemp[i+2],normalsTemp[i],normalsTemp[i+1],normalsTemp[i+2]].join(" ");
+		}
+		var vertIdx=stack.indexOf(idx);
+		if(vertIdx<0){
+			stack.push(idx);
+			vertIdx=stack.length-1;
+			newVerts.push(vertsTemp[i]);
+			newVerts.push(vertsTemp[i+1]);
+			newVerts.push(vertsTemp[i+2]);
+			newNormals.push(normalsTemp[i]);
+			newNormals.push(normalsTemp[i+1]);
+			newNormals.push(normalsTemp[i+2]);
+			if(tangents && tangents.length>0){
+				newTangents.push(tangentsTemp[i]);
+				newTangents.push(tangentsTemp[i+1]);
+				newTangents.push(tangentsTemp[i+2]);
+			}
+			if(uv1){
+				newUV1s.push(uv1Temp[i/3*2]);
+				newUV1s.push(uv1Temp[i/3*2+1]);
+			}
+			if(uv2){
+				newUV2s.push(uv2Temp[i/3*2]);
+				newUV2s.push(uv2Temp[i/3*2+1]);
+			}
+		}
+		newFaces.push(vertIdx);
+	}
+	this.setPositions(newVerts).setNormals(newNormals).setFaces(newFaces).setUV(newUV1s).setUV2(newUV2s).setTangents(newTangents);
+}
+
+
+
+/**
 * Sets the Attributes for this mesh
 * @param {WebGLContext} gl The context being drawn on
 * @private
@@ -5472,7 +5736,6 @@ GLGE.Mesh.prototype.GLAttributes=function(gl,shaderProgram,frame1, frame2){
 	if(!frame1) frame1=0;
 	//if at this point we have no normals set then calculate them
 	if(!this.normals) this.calcNormals();
-	
 	//disable all the attribute initially arrays - do I really need this?
 	for(var i=0; i<8; i++) gl.disableVertexAttribArray(i);
 	//check if the faces have been updated
@@ -5538,6 +5801,152 @@ GLGE.Mesh.prototype.GLAttributes=function(gl,shaderProgram,frame1, frame2){
 
 })(GLGE);/*
 GLGE WebGL Graphics Engine
+Copyright (c) 2011, Paul Brunt
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of GLGE nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL PAUL BRUNT BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/**
+ * @fileOverview
+ * @name glge_sphere.js
+ * @author me@paulbrunt.co.uk
+ */
+ 
+(function(GLGE){
+/**
+* @class Used to generate a basic sphere mesh
+* @augments GLGE.Mesh
+*/
+GLGE.Sphere=function(uid){
+	this.vertical=10;
+	this.horizontal=10;
+	this.radius=1;
+	this.dirtySphere=false;
+	GLGE.Mesh.apply(this,arguments);
+	this.generateMeshData();
+}
+GLGE.augment(GLGE.Mesh,GLGE.Sphere);
+/**
+* @private
+*/
+GLGE.Sphere.prototype.generateMeshData=function(){
+	var vertical=this.vertical;
+	var horizontal=this.horizontal;
+	var radius=this.radius;
+	var t1,y,r1,i,j,x,y,t2;
+	var verts=[];
+	var normals=[];
+	var faces=[];
+	for(i=0;i<=vertical;i++){
+		t1=i/vertical*Math.PI;
+		y=Math.cos(t1)*radius;
+		r1=Math.sin(t1)*radius;
+		for(j=0;j<horizontal;j++){
+			t2=j/horizontal*2*Math.PI;
+			x=Math.sin(t2)*r1;
+			z=Math.cos(t2)*r1;
+			verts.push(x,y,z);
+			var n=GLGE.toUnitVec3([x,y,z]);
+			normals.push(n[0],n[1],n[2]);
+		}
+		if(i>0){
+			for(j=0;j<horizontal;j++){
+				var v1=i*horizontal+j;
+				var v2=(i-1)*horizontal+j;
+				var v3=i*horizontal+(j+1)%horizontal;
+				var v4=(i-1)*horizontal+(j+1)%horizontal;
+				faces.push(v1,v3,v4,v1,v4,v2)
+			}
+		}
+	}
+	this.setPositions(verts);
+	this.setNormals(normals);
+	this.setFaces(faces);
+	this.dirtySphere=false;
+}
+
+/**
+* Sets the sphere radius
+* @param {number} radius the sphere radius
+*/
+GLGE.Sphere.prototype.setRadius=function(radius){
+	this.radius=radius;
+	this.dirtySphere=true;
+	return this;
+}
+/**
+* Gets the sphere radius
+* @returns the radius
+*/
+GLGE.Sphere.prototype.getRadius=function(){
+	return this.radius;
+}
+
+/**
+* Sets the sphere vertical divisions
+* @param {number} radius the sphere radius
+*/
+GLGE.Sphere.prototype.setVertical=function(vertical){
+	this.vertical=vertical;
+	this.dirtySphere=true;
+	return this;
+}
+/**
+* Gets the sphere vertical divisions
+* @returns the radius
+*/
+GLGE.Sphere.prototype.getRadius=function(){
+	return this.vertical;
+}
+
+/**
+* Sets the sphere horizontal divisions
+* @param {number} radius the sphere radius
+*/
+GLGE.Sphere.prototype.setHorizontal=function(horizontal){
+	this.horizontal=horizontal;
+	this.dirtySphere=true;
+	return this;
+}
+/**
+* Gets the sphere horizontal divisions
+* @returns the radius
+*/
+GLGE.Sphere.prototype.getRadius=function(){
+	return this.horizontal;
+}
+
+/**
+* @private
+*/
+GLGE.Sphere.prototype.GLAttributes=function(){
+	if(this.dirtySphere) this.generateMeshData();
+	GLGE.Mesh.prototype.GLAttributes.apply(this,arguments);
+};
+
+})(GLGE);/*
+GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
 
@@ -5566,7 +5975,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_material.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -5587,7 +5996,6 @@ var materialIdx=0;
 * @augments GLGE.Events
 */
 GLGE.Material=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.layers=[];
 	this.layerlisteners=[];
 	this.textures=[];
@@ -5600,6 +6008,7 @@ GLGE.Material=function(uid){
 	this.emit={r:0,g:0,b:0};
 	this.alpha=1;
 	this.materialIdx=materialIdx++;
+	GLGE.Assets.registerAsset(this,uid);
 };
 GLGE.augment(GLGE.Animatable,GLGE.Material);
 GLGE.augment(GLGE.QuickNotation,GLGE.Material);
@@ -5692,9 +6101,15 @@ GLGE.M_HEIGHT=8192;
 
 /**
 * @constant 
-* @description Flag for mapping of the height in parallax mapping
+* @description Flag for ambient mapping
 */
 GLGE.M_AMBIENT=16384;
+
+/**
+* @constant 
+* @description Flag for Steep parallax mapng
+*/
+GLGE.M_STEEP=32768;
 
 /**
 * @constant 
@@ -5742,6 +6157,7 @@ GLGE.MAP_VIEW=7;
 */
 GLGE.MAP_POINT=8;
 
+
 /**
 * @constant 
 * @description Enumeration for mix blending mode
@@ -5753,6 +6169,39 @@ GLGE.BL_MIX=0;
 * @description Enumeration for mix blending mode
 */
 GLGE.BL_MUL=1;
+
+
+/**
+* @constant 
+* @description Enumeration for no use of vertex color
+*/
+GLGE.VC_NONE=0;
+
+/**
+* @constant 
+* @description Enumeration for base vertex color mode
+*/
+GLGE.VC_BASE=1;
+
+/**
+* @constant 
+* @description Enumeration for muliply vertex color mode
+*/
+GLGE.VC_MUL=2;
+
+/**
+* @constant 
+* @description Enumeration for vertex color sets ambient lighting
+*/
+GLGE.VC_AMB=3;
+
+/**
+* @constant 
+* @description Enumeration for vertex color multiplied by ambient lighting
+*/
+GLGE.VC_AMBMUL=4;
+
+
 	
 GLGE.Material.prototype.layers=null;
 GLGE.Material.prototype.className="Material";
@@ -5765,10 +6214,45 @@ GLGE.Material.prototype.shine=null;
 GLGE.Material.prototype.reflect=null;
 GLGE.Material.prototype.lights=null;
 GLGE.Material.prototype.alpha=null;
-GLGE.Material.prototype.ambient=null;
+GLGE.Material.prototype.ambient={r:0,g:0,b:0};
 GLGE.Material.prototype.shadow=true;
 GLGE.Material.prototype.shadeless=false;
 GLGE.Material.prototype.downloadComplete=false;
+GLGE.Material.prototype.vertexColorMode=GLGE.VC_BASE;
+
+
+/**
+* Sets the vertex color mode. Default is to override the base color VC_MUL will multiply the vertex color with the resulting color
+* @param {boolean} value The vertex color mode
+*/
+GLGE.Material.prototype.setVertexColorMode=function(value){
+	this.vertexColorMode=value;
+	this.fireEvent("shaderupdate",{});
+	return this;
+};
+/**
+* Gets the vertex color mode
+* @returns {boolean} The vertex color mode
+*/
+GLGE.Material.prototype.getVertexColorMode=function(value){
+	return this.vertexColorMode;
+};
+
+/**
+* Sets the fall back material the material will be used if this one fails to produce a program
+* @param {boolean} value The fallback material
+*/
+GLGE.Material.prototype.setFallback=function(value){
+	this.fallback=value;
+	return this;
+};
+/**
+* Gets the fallback material, if program fails then the fallback will be used
+* @returns {boolean} The fallback material
+*/
+GLGE.Material.prototype.getFallback=function(value){
+	return this.fallback;
+};
 
 /**
 * Sets the flag indicateing if the material is shadeless
@@ -5809,7 +6293,7 @@ GLGE.Material.prototype.setColor=function(color){
 		color=GLGE.colorParse(color);
 	}
 	this.color={r:color.r,g:color.g,b:color.b};
-	this.fireEvent("shaderupdate",{});
+	//this.fireEvent("shaderupdate",{});
 	return this;
 };
 /**
@@ -5817,8 +6301,7 @@ GLGE.Material.prototype.setColor=function(color){
 * @param {Number} r The new red level 0-1
 */
 GLGE.Material.prototype.setColorR=function(value){
-	this.color.r=value;
-	this.fireEvent("shaderupdate",{});
+	this.color={r:value,g:this.color.g,b:this.color.b,a:this.color.a};
 	return this;
 };
 /**
@@ -5826,8 +6309,7 @@ GLGE.Material.prototype.setColorR=function(value){
 * @param {Number} g The new green level 0-1
 */
 GLGE.Material.prototype.setColorG=function(value){
-	this.color.g=value;
-	this.fireEvent("shaderupdate",{});
+	this.color={r:this.color.r,g:value,b:this.color.b,a:this.color.a};
 	return this;
 };
 /**
@@ -5835,9 +6317,29 @@ GLGE.Material.prototype.setColorG=function(value){
 * @param {Number} b The new blue level 0-1
 */
 GLGE.Material.prototype.setColorB=function(value){
-	this.color.b=value;
-	this.fireEvent("shaderupdate",{});
+	this.color={r:this.color.r,g:this.color.g,b:value,a:this.color.a};
 	return this;
+};
+/**
+* Gets the red base colour of the material
+* @returns The red level 0-1
+*/
+GLGE.Material.prototype.getColorR=function(value){
+	return this.color.r;
+};
+/**
+* Gets the green base colour of the material
+* @returns The green level 0-1
+*/
+GLGE.Material.prototype.getColorG=function(value){
+	return this.color.g;
+};
+/**
+* Gets the blue base colour of the material
+* @returns The blue level 0-1
+*/
+GLGE.Material.prototype.getColorB=function(value){
+	return this.color.b;
 };
 /**
 * Gets the current base color of the material
@@ -5894,7 +6396,6 @@ GLGE.Material.prototype.getSpecularColor=function(){
 */
 GLGE.Material.prototype.setAlpha=function(value){
 	this.alpha=value;
-	this.fireEvent("shaderupdate",{});
 	return this;
 };
 /**
@@ -5950,6 +6451,52 @@ GLGE.Material.prototype.setEmit=function(color){
 	this.fireEvent("shaderupdate",{});
 	return this;
 };
+/**
+* Sets how much the Red material should emit
+* @param {Number} value what Red to emit
+*/
+GLGE.Material.prototype.setEmitR=function(value){
+	this.emit.r=parseFloat(value);
+	return this;
+};
+/**
+* Sets how much the green material should emit
+* @param {Number} value what green to emit
+*/
+GLGE.Material.prototype.setEmitG=function(value){
+	this.emit.g=parseFloat(value);
+	return this;
+};
+/**
+* Sets how much the blue material should emit
+* @param {Number} value what blue to emit
+*/
+GLGE.Material.prototype.setEmitB=function(value){
+	this.emit.b=parseFloat(value);
+	return this;
+};
+/**
+* Sets how much the Red material should emit
+* @returns Red to emit
+*/
+GLGE.Material.prototype.getEmitR=function(value){
+	return this.emit.r;
+};
+/**
+* Sets how much the green material should emit
+* @returns green to emit
+*/
+GLGE.Material.prototype.getEmitG=function(value){
+	return this.emit.g;
+};
+/**
+* Sets how much the blue material should emit
+* @returns blue to emit
+*/
+GLGE.Material.prototype.getEmitB=function(value){
+	return this.emit.b;
+};
+
 /**
 * Gets the amount this material emits
 * @return {Number} The emit value for the material
@@ -6037,7 +6584,7 @@ GLGE.Material.prototype.getLayers=function(){
 GLGE.Material.prototype.getLayerCoords=function(shaderInjection){
 		var shader=[];
 		shader.push("vec4 texturePos;\n"); 
-		for(i=0; i<this.layers.length;i++){
+		for(var i=0; i<this.layers.length;i++){
 			shader.push("textureCoords"+i+"=vec3(0.0,0.0,0.0);\n"); 
 			
 			if(this.layers[i].mapinput==GLGE.UV1 || this.layers[i].mapinput==GLGE.UV2){
@@ -6079,7 +6626,7 @@ GLGE.Material.prototype.getLayerCoords=function(shaderInjection){
 */
 GLGE.Material.prototype.getVertexVarying=function(){
 	var shader=[];
-	for(i=0; i<this.layers.length;i++){
+	for(var i=0; i<this.layers.length;i++){
 		shader.push("uniform mat4 layer"+i+"Matrix;\n");  
 		shader.push("varying vec3 textureCoords"+i+";\n"); 
 	}
@@ -6097,8 +6644,8 @@ GLGE.Material.prototype.registerPasses=function(gl,object){
 * @private
 */
 GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection){
-	var shader="#ifdef GL_ES\nprecision highp float;\n#endif\n#define GLGE_FRAGMENT\n";
-	if(shaderInjection) shader+=shaderinjection;
+	var shader="#ifdef GL_ES\nprecision mediump float;\n#endif\n#define GLGE_FRAGMENT\n";
+	if(shaderInjection) shader+=shaderInjection;
 	var tangent=false;
 	for(var i=0; i<lights.length;i++){
 		if(lights[i].type==GLGE.L_POINT || lights[i].type==GLGE.L_SPOT || lights[i].type==GLGE.L_DIR){
@@ -6147,7 +6694,10 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 	for(i=0; i<this.layers.length;i++){		
 		shader=shader+"varying vec3 textureCoords"+i+";\n";
 		shader=shader+"uniform float layeralpha"+i+";\n";
-		if((this.layers[i].mapto & GLGE.M_HEIGHT) == GLGE.M_HEIGHT){
+		if(this.layers[i].mapinput==GLGE.MAP_VIEW){
+			shader=shader+"uniform mat4 layer"+i+"Matrix;\n";
+		}
+		if((this.layers[i].mapto & GLGE.M_HEIGHT) == GLGE.M_HEIGHT || (this.layers[i].mapto & GLGE.M_STEEP) == GLGE.M_STEEP){
 			shader=shader+"uniform float layerheight"+i+";\n";
 		}
 	}
@@ -6185,8 +6735,8 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 	shader=shader+"float al=alpha;\n"; 
 	shader=shader+"vec3 amblight=amb;\n"; 
 	shader=shader+"vec4 normalmap= vec4(n,0.0);\n"
-	if(colors){
-		shader=shader+"vec4 color = vcolor;";
+	if(colors && this.vertexColorMode==GLGE.VC_BASE){
+		shader=shader+"vec4 color= vcolor;";
 		shader=shader+"al = vcolor.a;";
 	}else{
 		shader=shader+"vec4 color = baseColor;"; //set the initial color
@@ -6198,19 +6748,19 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 	var diffuseLayer=0;
 	var anyAlpha=false;
 	for(i=0; i<this.layers.length;i++){
+		
 		shader=shader+"textureCoords=textureCoords"+i+"+textureHeight;\n";
 		shader=shader+"mask=layeralpha"+i+"*mask;\n";
 		
 		if(this.layers[i].mapinput==GLGE.MAP_VIEW){
-			//will need to do in fragment to take the normal maps into account!
 			shader=shader+"view=projection * vec4(-eyevec,1.0);\n";
 			shader=shader+"textureCoords=view.xyz/view.w*0.5+0.5;\n";
-			shader=shader+"textureCoords=textureCoords+textureHeight;\n";
+			shader=shader+"textureCoords=(layer"+i+"Matrix*vec4(textureCoords,1.0)).xyz+textureHeight;\n";
 		}
     	
-        if(this.layers[i].mapinput==GLGE.MAP_POINT){
-        	shader=shader+"textureCoords=vec3(gl_PointCoord,1.0);\n";
-        }
+		if(this.layers[i].mapinput==GLGE.MAP_POINT){
+			shader=shader+"textureCoords=vec3(gl_PointCoord,1.0);\n";
+		}
     	
         
 			
@@ -6224,6 +6774,7 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 		
 		if((this.layers[i].mapto & GLGE.M_COLOR) == GLGE.M_COLOR){			
 			diffuseLayer=i;
+			
 			if(this.layers[i].blendMode==GLGE.BL_MUL){
 				shader=shader+"color = color*(1.0-mask) + color*texture"+sampletype+"(TEXTURE"+this.layers[i].texture.idx+", textureCoords."+txcoord+")*mask;\n";
 			}
@@ -6237,6 +6788,28 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 			//do paralax stuff
 			shader=shader+"pheight = texture2D(TEXTURE"+this.layers[i].texture.idx+", textureCoords."+txcoord+").x;\n";
 			shader=shader+"textureHeight =vec3((layerheight"+i+"* (pheight-0.5)  * normalize(eyevec).xy*vec2(1.0,-1.0)),0.0);\n";
+		}
+		if((this.layers[i].mapto & GLGE.M_STEEP) == GLGE.M_STEEP){
+			shader=shader+"b=normalize(cross(t.xyz,n));\n";
+			shader=shader+"vec3 neye=normalize(eyevec.xyz);"
+			shader=shader+"neye = vec3(dot(neye,t),dot(neye,b),dot(neye,n));";
+			shader=shader+"neye = normalize(neye);";
+			shader=shader+"float stepheight"+i+"=layerheight"+i+";";
+			
+			shader=shader+"float steepstep"+i+"=(1.0/8.0)*stepheight"+i+"/neye.z;";
+			shader=shader+"float steepdisplace"+i+"=0.0;";
+
+			shader=shader+"for(int steepcount"+i+"=0;steepcount"+i+"<8;steepcount"+i+"++){";
+			shader=shader+"pheight = texture2D(TEXTURE"+this.layers[i].texture.idx+", textureCoords."+txcoord+"+vec2(neye.x,neye.y)*steepdisplace"+i+").x;\n";
+			shader=shader+"if(pheight*stepheight"+i+">neye.z*steepdisplace"+i+"){";
+			shader=shader+"textureHeight=vec3(vec2(neye.x,neye.y)*steepdisplace"+i+",0.0);";
+			shader=shader+"}else{";
+			shader=shader+"steepdisplace"+i+"-=steepstep"+i+";";
+			shader=shader+"steepstep"+i+"*=0.5;";
+			shader=shader+"}";
+			shader=shader+"steepdisplace"+i+"+=steepstep"+i+";";
+
+			shader=shader+"}";
 		}
 		if((this.layers[i].mapto & GLGE.M_SPECCOLOR) == GLGE.M_SPECCOLOR){
 			shader=shader+"specC = specC*(1.0-mask) + texture"+sampletype+"(TEXTURE"+this.layers[i].texture.idx+", textureCoords."+txcoord+").rgb*mask;\n";
@@ -6292,13 +6865,21 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 		}
 		shader=shader+"al = al*(1.0-mask) + texture"+sampletype+"(TEXTURE"+this.layers[diffuseLayer].texture.idx+", textureCoords."+txcoord+").a*al*mask;\n";        
 	}
+	if(colors && this.vertexColorMode==GLGE.VC_MUL){
+		shader=shader+"color *= vcolor;";
+	}
 	if(this.binaryAlpha) {
 		shader=shader+"if(al<0.5) discard;\n";
 		shader=shader+"al=1.0;\n";
-	}else {
-		//shader=shader+"if(al<0.0625) discard;\n";
 	}
 	shader=shader+"vec3 lightvalue=amblight;\n"; 
+	if(colors && this.vertexColorMode==GLGE.VC_AMB){
+		shader=shader+"lightvalue = vcolor.rgb;";
+	}
+	if(colors && this.vertexColorMode==GLGE.VC_AMBMUL){
+		shader=shader+"lightvalue *= vcolor.rgb;";
+	}
+	
 	shader=shader+"float dotN,spotEffect;";
 	shader=shader+"vec3 lightvec=vec3(0.0,0.0,0.0);";
 	shader=shader+"vec3 viewvec=vec3(0.0,0.0,0.0);";
@@ -6318,8 +6899,6 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 	shader=shader+"vec4 dist;float depth;\n";
 	shader=shader+"if (normal.z<0.0) {normal.z=0.0;}\n";
 	
-	//shader=shader+"normal/=length(normal);\n"; //is this really needed 
-		
     
     shader=shader+"float fogfact=1.0;";
     shader=shader+"if(fogtype=="+GLGE.FOG_QUADRATIC+" || fogtype=="+GLGE.FOG_SKYQUADRATIC+") fogfact=clamp(pow(max((fogfar - length(eyevec)) / (fogfar - fognear),0.0),2.0),0.0,1.0);\n";
@@ -6327,7 +6906,7 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
     
     
     shader=shader+"if (emitpass) {gl_FragColor=vec4(em,1.0);} else if (shadeless) {\n";
-     shader=shader+"gl_FragColor=vec4(color.rgb,1.0);\n";
+     shader=shader+"gl_FragColor=vec4(color.rgb,al);\n";
     shader=shader+"} else {\n";
     
 	for(var i=0; i<lights.length;i++){
@@ -6335,7 +6914,6 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 		shader=shader+"lightvec=lightvec"+i+";\n";  
 		shader=shader+"viewvec=eyevec;\n"; 
 		
-		//shader=shader+"dp=dot(normal.rgb,eyevec.xyz); if (dp<0.0){(normal-=dp*eyevec/length(eyevec)); normal/=length(normal);}";
 		
 		if(lights[i].type==GLGE.L_POINT){ 
 			shader=shader+"dotN=max(dot(normal,normalize(-lightvec)),0.0);\n";       
@@ -6437,17 +7015,18 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 				for(var l=1;l<levels;l++){
 				shader=shader+"if(scoord.x<0.0 || scoord.x>1.0 || scoord.y<0.0 || scoord.y>1.0) {scoord=((spotcoord"+i+".xy-shadowoffset"+i+")*"+Math.pow(0.5,l).toFixed(5)+"+shadowoffset"+i+"+1.0)/2.0;level"+i+"="+(l+1).toFixed(2)+";};\n";
 				}
-				shader=shader+"scoord.y=scoord.y/"+levels.toFixed(2)+"+1.0-"+(1/levels)+"*level"+i+";\n";
+				shader=shader+"scoord.y=scoord.y/"+levels.toFixed(2)+"+1.0-"+((1/levels).toFixed(5))+"*level"+i+";\n";
+				
 				if(lights[i].samples==0){
 					shader=shader+"dist=texture2D(TEXTURE"+shadowlights[i]+", scoord);\n";
 					shader=shader+"depth = dot(dist, vec4(0.000000059604644775390625,0.0000152587890625,0.00390625,1.0))*"+((+lights[i].distance).toFixed(2))+";\n";
 					shader=shader+"sDepth = ((spotcoord"+i+".z)/spotcoord"+i+".w+1.0)/2.0;\n";
 							
 					shader=shader+"if(scoord.x>0.0 && scoord.x<1.0 && scoord.y>0.0 && scoord.y<1.0 && sDepth-shadowbias"+i+"-depth>0.0) {\n";
-					shader=shader+"shadowfact"+i+"=pow(clamp(2.0*length(eyevec)/"+((+lights[i].distance).toFixed(2))+",0.0,1.0),2.0);\n";
+					shader=shader+"shadowfact"+i+"=pow(clamp(2.0*length(eyevec)/"+((+lights[i].distance).toFixed(2))+",0.0,1.0),1.2);\n";
 					shader=shader+"}else{shadowfact"+i+"=1.0;}\n";	
 				}else{
-					shader=shader+"rnd=(fract(sin(dot(scoord,vec2(12.9898,78.233))) * 43758.5453)-0.5)*2.0;\n"; //generate random number
+					shader=shader+"rnd=(fract(sin(dot(scoord,vec2(12.9898,78.233))) * 43758.5453)-0.5)*0.5;\n"; //generate random number
 					for(var x=-lights[i].samples;x<=lights[i].samples;x++){
 						for(var y=-lights[i].samples;y<=lights[i].samples;y++){
 							shader=shader+"dist=texture2D(TEXTURE"+shadowlights[i]+", scoord+vec2("+(x/lights[i].bufferWidth).toFixed(4)+","+(y/lights[i].bufferHeight).toFixed(4)+")*shadowsoftness"+i+"*100.0/level"+i+"+vec2("+(1.0/lights[i].bufferWidth).toFixed(4)+","+(1.0/lights[i].bufferHeight).toFixed(4)+")*rnd);\n";
@@ -6465,7 +7044,11 @@ GLGE.Material.prototype.getFragmentShader=function(lights,colors,shaderInjection
 				shader=shader+"float shadowfact"+i+" = 1.0;\n";
 			}
 			if(lights[i].diffuse){
-				shader=shader+"lightvalue += dotN * lightcolor"+i+" * shadowfact"+i+";\n";
+				if(lights[i].negativeShadow){
+					shader=shader+"lightvalue -= lightcolor"+i+"-(dotN * lightcolor"+i+" * shadowfact"+i+");\n";
+				}else{
+					shader=shader+"lightvalue += dotN * lightcolor"+i+" * shadowfact"+i+";\n";
+				}
 			}
 			if(lights[i].specular){
 				shader=shader+"specvalue += smoothstep(-specularSmoothStepValue,specularSmoothStepValue,dotN) * specC * lightcolor"+i+" * spec  * pow(max(dot(reflect(normalize(lightvec), normal),normalize(viewvec)),0.0), 0.3 * sh);\n";
@@ -6506,8 +7089,8 @@ GLGE.Material.prototype.textureUniforms=function(gl,shaderProgram,lights,object)
 	if(this.animation) this.animate();
 	var pc=shaderProgram.caches;
 		
-	if(pc.baseColor!=this.color){
-		if(this.ccache!=this.color){
+	if(!pc.baseColor || pc.baseColor.r!=this.color.r || pc.baseColor.g!=this.color.g || pc.baseColor.b!=this.color.b || pc.baseColor.a!=this.color.a){
+		if(!this.ccache || this.ccache.r!=this.color.r || this.ccache.g!=this.color.g || this.ccache.b!=this.color.b || this.ccache.a!=this.color.a){
 			this.ccache=this.color;
 			this.glColor=new Float32Array([this.color.r,this.color.g,this.color.b,this.color.a]);
 		}
@@ -6719,7 +7302,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_materiallayer.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -6738,8 +7321,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.Events
 */
 GLGE.MaterialLayer=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.blendMode=GLGE.BL_MIX;
+	GLGE.Assets.registerAsset(this,uid);
 };
 GLGE.augment(GLGE.Animatable,GLGE.MaterialLayer);
 GLGE.augment(GLGE.QuickNotation,GLGE.MaterialLayer);
@@ -7249,7 +7832,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_multimaterial.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -7269,18 +7852,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.Events
 */
 GLGE.MultiMaterial=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
     var multiMaterial=this;
     this.downloadComplete=function(){
         if(multiMaterial.isComplete()) multiMaterial.fireEvent("downloadComplete");
     }
+    this.boundUpdate=function(){
+        multiMaterial.fireEvent("boundupdate");
+    }
 	this.lods=[new GLGE.ObjectLod];
     this.lods[0].addEventListener("downloadComplete",this.downloadComplete);
+    this.lods[0].addEventListener("boundupdate",this.boundUpdate);
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.MultiMaterial);
 GLGE.augment(GLGE.JSONLoader,GLGE.MultiMaterial);
 GLGE.augment(GLGE.Events,GLGE.MultiMaterial);
 GLGE.MultiMaterial.prototype.className="MultiMaterial";
+GLGE.MultiMaterial.prototype.oneLod=true;
 
 
 /**
@@ -7350,6 +7938,10 @@ GLGE.MultiMaterial.prototype.getLOD=function(pixelsize){
 * @param {GLGE.ObjectLod} lod the lod to add
 */
 GLGE.MultiMaterial.prototype.addObjectLod=function(lod){
+	if(this.oneLod){
+		this.oneLod=false;
+		this.lods=[];
+	}
 	this.lods.push(lod);
     lod.addEventListener("downloadComplete",this.downloadComplete);
 	return this;
@@ -7410,7 +8002,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_texture.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -7563,7 +8155,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_texturecamera.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -7859,7 +8451,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_texturecanvas.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -7877,8 +8469,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.TextureCanvas=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.canvas=document.createElement("canvas");
+	//temp canvas to force chrome to update FIX ME when bug sorted!
+	this.t=document.createElement("canvas");
+	this.t.width=1;
+	this.t.height=1;
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.TextureCanvas);
 GLGE.augment(GLGE.JSONLoader,GLGE.TextureCanvas);
@@ -7980,11 +8576,11 @@ GLGE.TextureCanvas.prototype.update=function(){
 */
 GLGE.TextureCanvas.prototype.updateCanvas=function(gl){
 	var canvas = this.canvas;
-	
 	gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
-	//TODO: fix this when minefield is upto spec
-	try{gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);}
-	catch(e){gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas,null);}
+	
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.t); //force chrome to update remove when chrome bug fixed
+	
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.generateMipmap(gl.TEXTURE_2D);
@@ -8021,7 +8617,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_texturecube.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -8190,7 +8786,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_texturevideo.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -8208,7 +8804,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.TextureVideo=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.video=document.createElement("video");
 	this.video.style.display="none";
 	this.video.setAttribute("loop","loop");
@@ -8220,6 +8815,7 @@ GLGE.TextureVideo=function(uid){
 	//used to get webkit working
 	this.canvas=document.createElement("canvas");
 	this.ctx=this.canvas.getContext("2d");
+	GLGE.Assets.registerAsset(this,uid);
 	
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.TextureVideo);
@@ -8343,7 +8939,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_lod.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -8363,8 +8959,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.Events
 */
 GLGE.ObjectLod=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
     this.setMaterial(GLGE.DEFAULT_MATERIAL);
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.ObjectLod);
 GLGE.augment(GLGE.JSONLoader,GLGE.ObjectLod);
@@ -8388,13 +8984,19 @@ GLGE.ObjectLod.prototype.setMesh=function(mesh){
 	//remove event listener from current material
 	if(this.mesh){
 		this.mesh.removeEventListener("shaderupdate",this.meshupdated);
+		this.mesh.removeEventListener("boundupdate",this.boundupdated);
 	}
 	var multiMaterial=this;
 	this.meshupdated=function(event){
 		multiMaterial.GLShaderProgram=null;
 	};
+	
+	this.boundupdated=function(event){
+		multiMaterial.fireEvent("boundupdate",{});
+	};
 	//set event listener for new material
 	mesh.addEventListener("shaderupdate",this.meshupdated);
+	mesh.addEventListener("boundupdate",this.boundupdated);
 	
 	this.GLShaderProgram=null;
 	this.mesh=mesh;
@@ -8497,7 +9099,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_object.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -8530,13 +9132,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.Object=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.multimaterials=[];
 	this.renderCaches=[];
     var that=this;
     this.downloadComplete=function(){
         if(that.isComplete()) that.fireEvent("downloadComplete");
     }
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Placeable,GLGE.Object);
 GLGE.augment(GLGE.Animatable,GLGE.Object);
@@ -8559,10 +9161,12 @@ GLGE.Object.prototype.pointSize=1;
 GLGE.Object.prototype.lineWidth=1;
 GLGE.Object.prototype.cull=true;
 GLGE.Object.prototype.culled=true;
+GLGE.Object.prototype.visible=true;
 GLGE.Object.prototype.depthTest=true;
 GLGE.Object.prototype.meshFrame1=0;
 GLGE.Object.prototype.meshFrame2=0;
 GLGE.Object.prototype.meshBlendFactor=0;
+GLGE.Object.prototype.noCastShadows=null;
 
 
 //shadow fragment
@@ -8621,6 +9225,24 @@ pkfragStr.push("}");
 pkfragStr.push("}\n");
 GLGE.Object.prototype.pkfragStr=pkfragStr.join("");
 
+
+/**
+* Sets the object visibility
+* @param {boolean} visable flag to indicate the objects visibility
+*/
+GLGE.Object.prototype.setVisible=function(visible){
+	this.visible=visible;
+	return this;
+}
+
+/**
+* Gets the object visibility
+* @returns  flag to indicate the objects visibility
+*/
+GLGE.Object.prototype.getVisible=function(){
+	return this.visible;
+}
+
 /**
 * Sets the first mesh frame to use when using an animated mesh
 * @param {boolean} frame the inital frame
@@ -8636,13 +9258,21 @@ GLGE.Object.prototype.setMeshFrame1=function(frame){
 GLGE.Object.prototype.setMeshFrame2=function(frame){
 	this.meshFrame2=frame;
 	return this;
-}/**
+}
+/**
 * blending between frames
 * @param {boolean} frame value 0-1 morth between frame1 and frame2
 */
 GLGE.Object.prototype.setMeshBlendFactor=function(factor){
 	this.meshBlendFactor=factor;
 	return this;
+}
+/**
+* Gets blending between frames
+* @returns blender factor
+*/
+GLGE.Object.prototype.getMeshBlendFactor=function(){
+	return this.meshBlendFactor;
 }
 
 /**
@@ -8806,7 +9436,6 @@ GLGE.Object.prototype.getBoundingVolume=function(local){
 	if(!local) local=0;
 	if(!this.boundingVolume) this.boundingVolume=[];
 	if(!this.boundmatrix) this.boundmatrix=[];
-	
 	var matrix=this.getModelMatrix();
 	if(matrix!=this.boundmatrix[local] || !this.boundingVolume[local]){
 		var multimaterials=this.multimaterials;
@@ -8831,6 +9460,23 @@ GLGE.Object.prototype.getBoundingVolume=function(local){
 	}
 	this.boundmatrix[local]=matrix;
 	return this.boundingVolume[local];
+}
+
+
+/**
+* Sets the the show casting flag
+* @param {boolean} value cast or not
+*/
+GLGE.Object.prototype.setCastShadows=function(value){
+	this.noCastShadows=!value;
+	return this;
+}
+/**
+* Gets the the show casting flag
+* @returns boolean
+*/
+GLGE.Object.prototype.getCastShadows=function(){
+	return !this.noCastShadows;
 }
 
 /**
@@ -8898,8 +9544,10 @@ GLGE.Object.prototype.setMesh=function(mesh,idx){
 	if(typeof mesh=="string")  mesh=GLGE.Assets.get(mesh);
 	if(!idx) idx=0;
 	if(!this.multimaterials[idx]){
-        this.multimaterials[idx]=new GLGE.MultiMaterial();
-        this.multimaterials[idx].addEventListener("downloadComplete",this.downloadComplete);
+		var object=this;
+		this.multimaterials[idx]=new GLGE.MultiMaterial();
+		this.multimaterials[idx].addEventListener("downloadComplete",this.downloadComplete);
+		this.multimaterials[idx].addEventListener("boundupdate",function(){object.boundingVolume=null});
 	}
 	this.multimaterials[idx].setMesh(mesh);
 	this.boundingVolume=null;
@@ -8946,7 +9594,9 @@ GLGE.Object.prototype.updateProgram=function(){
 GLGE.Object.prototype.addMultiMaterial=function(multimaterial){
 	if(typeof multimaterial=="string")  multimaterial=GLGE.Assets.get(multimaterial);
 	this.multimaterials.push(multimaterial);
-    multimaterial.addEventListener("downloadComplete",this.downloadComplete);
+	multimaterial.addEventListener("downloadComplete",this.downloadComplete);
+	var object=this;
+	multimaterial.addEventListener("boundupdate",function(){object.boundingVolume=null});
 	this.boundingVolume=null;
 	return this;
 }
@@ -9146,9 +9796,6 @@ GLGE.Object.prototype.GLGenerateShader=function(gl){
 
 	
 	
-	vertexStr.push("gl_Position = projection * pos;\n");
-	vertexStr.push("gl_PointSize="+(this.pointSize.toFixed(5))+";\n");
-	
 	vertexStr.push("eyevec = -pos.xyz;\n");
 	
 	if(tangent) vertexStr.push("t = normalize(tang);");
@@ -9167,6 +9814,8 @@ GLGE.Object.prototype.GLGenerateShader=function(gl){
 			vertexStr.push("lightdist"+i+" = length(lightpos"+i+".xyz-pos.xyz);\n");
 	}
 	if(this.material) vertexStr.push(this.material.getLayerCoords(this.shaderVertexInjection));
+	vertexStr.push("gl_Position = projection * pos;\n");
+	vertexStr.push("gl_PointSize="+(this.pointSize.toFixed(5))+";\n");
 	vertexStr.push("}\n");
 	
 	vertexStr=vertexStr.join("");
@@ -9187,6 +9836,15 @@ GLGE.Object.prototype.GLGenerateShader=function(gl){
 	this.GLShaderProgramNormal=GLGE.getGLProgram(gl,this.GLVertexShaderNormal,this.GLFragmentShaderNormal);
 	this.GLShaderProgramShadow=GLGE.getGLProgram(gl,this.GLVertexShaderShadow,this.GLFragmentShaderShadow);
 	this.GLShaderProgram=GLGE.getGLProgram(gl,this.GLVertexShaderShadow,this.GLFragmentShader);
+	
+	//if we failed then check for fallback option
+	if (!gl.getProgramParameter(this.GLShaderProgram, gl.LINK_STATUS)) {
+		if(this.material.fallback){
+			this.material=this.material.fallback;
+			this.multimaterial.material=this.material;
+			this.GLGenerateShader(gl);
+		}
+	}
 
 }
 /**
@@ -9198,6 +9856,7 @@ GLGE.Object.prototype.createShaders=function(multimaterial){
 	if(this.gl){
 		this.mesh=multimaterial.mesh;
 		this.material=multimaterial.material;
+		this.multimaterial=multimaterial;
 		this.GLGenerateShader(this.gl);
 		multimaterial.GLShaderProgramPick=this.GLShaderProgramPick;
 		multimaterial.GLShaderProgramShadow=this.GLShaderProgramShadow;
@@ -9244,7 +9903,7 @@ GLGE.Object.prototype.GLUniforms=function(gl,renderType,pickindex){
     gl.lineWidth(this.lineWidth);
     
     //set custom uinforms
-    for(key in this.uniforms){
+    for(var key in this.uniforms){
     	var uniform=this.uniforms[key];
     	if(uniform.type=="Matrix4fv"){
     		GLGE.setUniformMatrix(gl,"Matrix4fv",GLGE.getUniformLocation(gl,program, key),false,uniform.value);
@@ -9295,7 +9954,7 @@ GLGE.Object.prototype.GLUniforms=function(gl,renderType,pickindex){
 			
 	
 	var cameraMatrix=camera.getViewMatrix();
-	var modelMatrix=this.getModelMatrix();
+	var objMatrix=modelMatrix=this.getModelMatrix();
 	
 	if(!pc.mvMatrix) pc.mvMatrix={cameraMatrix:null,modelMatrix:null};
 	var mvCache=pc.mvMatrix;
@@ -9449,7 +10108,7 @@ GLGE.Object.prototype.GLUniforms=function(gl,renderType,pickindex){
 			}
 			var invBind=this.mesh.invBind[i];
 			if(jointCache[i].modelMatrix!=modelMatrix || jointCache[i].invBind!=invBind){
-				var jointmat=GLGE.mulMat4(modelMatrix,invBind);
+				var jointmat=GLGE.mulMat4(modelMatrix,invBind); 
 				//jointmat=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
 				if(!pgl.joints[i]){
 					pgl.jointsT[i]=new Float32Array(GLGE.transposeMat4(jointmat));
@@ -9574,6 +10233,9 @@ GLGE.Object.prototype.GLRender=function(gl,renderType,pickindex,multiMaterial,di
 				case GLGE.DRAW_LINESTRIPS:
 					drawType=gl.LINE_STRIP;
 					break;
+				case GLGE.DRAW_TRIANGLESTRIP:
+					drawType=gl.TRIANGLE_STRIP;
+					break;
 				default:
 					drawType=gl.TRIANGLES;
 					break;
@@ -9620,8 +10282,12 @@ GLGE.Object.prototype.GLRender=function(gl,renderType,pickindex,multiMaterial,di
 				case GLGE.Mesh.WINDING_ORDER_UNKNOWN:
 					gl.disable(gl.CULL_FACE);
 					break;
+				case GLGE.Mesh.WINDING_ORDER_CLOCKWISE:
+					gl.enable(gl.CULL_FACE);    
+					break;
 				case GLGE.Mesh.WINDING_ORDER_COUNTER:
 					gl.cullFace(gl.FRONT);
+					gl.enable(gl.CULL_FACE);    
 				default:
 					break;
 			}
@@ -9631,6 +10297,7 @@ GLGE.Object.prototype.GLRender=function(gl,renderType,pickindex,multiMaterial,di
 			}else{
 				gl.drawArrays(drawType, 0, this.mesh.positions.length/3);
 			}
+			
 			switch (this.mesh.windingOrder) {
 				case GLGE.Mesh.WINDING_ORDER_UNKNOWN:
 					if (gl.scene.renderer.cullFaces)
@@ -9681,7 +10348,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_text.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -9700,9 +10367,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.Text=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.canvas=document.createElement("canvas");
 	this.color={r:1.0,g:1.0,b:1.0};
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Placeable,GLGE.Text);
 GLGE.augment(GLGE.Animatable,GLGE.Text);
@@ -9718,6 +10385,7 @@ GLGE.Text.prototype.font="Times";
 GLGE.Text.prototype.size=100;
 GLGE.Text.prototype.pickType=GLGE.TEXT_TEXTPICK;
 GLGE.Text.prototype.pickable=true;
+GLGE.Text.prototype.alpha=1;
 
 /**
 * Gets the pick type for this text
@@ -9825,6 +10493,23 @@ GLGE.Text.prototype.getColor=function(){
 };
 
 /**
+* Sets the alpha
+* @param {Number} b The new alpha level 0-1
+*/
+GLGE.Text.prototype.setAlpha=function(value){
+	this.alpha=value;
+	return this;
+};
+
+/**
+* Gets the alpha
+* @returns The alpha level
+*/
+GLGE.Text.prototype.getAlpha=function(){
+	return this.alpha;
+};
+
+/**
 * Sets the Z Transparency of this text
 * @param {boolean} value Does this object need blending?
 */
@@ -9865,16 +10550,24 @@ GLGE.Text.prototype.GLGenerateShader=function(gl){
 	var fragStr="#ifdef GL_ES\nprecision highp float;\n#endif\n";
 	fragStr=fragStr+"uniform sampler2D TEXTURE;\n";
 	fragStr=fragStr+"varying vec2 texcoord;\n";
+	fragStr=fragStr+"uniform mat4 Matrix;\n";
 	fragStr=fragStr+"varying vec4 pos;\n";
 	fragStr=fragStr+"uniform float far;\n";
+	fragStr=fragStr+"uniform bool depthrender;\n";
+	fragStr=fragStr+"uniform float distance;\n";
 	fragStr=fragStr+"uniform int picktype;\n";
 	fragStr=fragStr+"uniform vec3 pickcolor;\n";
 	fragStr=fragStr+"uniform vec3 color;\n";
+	fragStr=fragStr+"uniform float alpha;\n";
 	fragStr=fragStr+"void main(void){\n";
-	fragStr=fragStr+"float alpha=texture2D(TEXTURE,texcoord).a;\n";
+	fragStr=fragStr+"float ob=pow(min(1.0,abs(dot(normalize(Matrix[2].rgb),vec3(0.0,0.0,1.0)))*2.0),1.5);\n";
+	fragStr=fragStr+"float a=texture2D(TEXTURE,texcoord).a*alpha*ob;\n";
 	fragStr=fragStr+"if(picktype=="+GLGE.TEXT_BOXPICK+"){gl_FragColor = vec4(pickcolor,1.0);}"
 	fragStr=fragStr+"else if(picktype=="+GLGE.TEXT_TEXTPICK+"){if(alpha<1.0) discard; gl_FragColor = vec4(pickcolor,alpha);}"
-	fragStr=fragStr+"else{gl_FragColor = vec4(color.rgb*alpha,alpha);};\n";
+	fragStr=fragStr+"else{gl_FragColor = vec4(color.rgb,a);};\n";
+	fragStr=fragStr+"if (depthrender) { if(a<0.5) discard; float depth = gl_FragCoord.z / gl_FragCoord.w;\n";
+	fragStr=fragStr+"vec4 rgba=fract(depth/distance * vec4(16777216.0, 65536.0, 256.0, 1.0));\n";
+	fragStr=fragStr+"gl_FragColor=rgba-rgba.rrgb*vec4(0.0,0.00390625,0.00390625,0.00390625);}\n";
 	fragStr=fragStr+"}\n";
 	
 	this.GLFragmentShader=gl.createShader(gl.FRAGMENT_SHADER);
@@ -9928,7 +10621,7 @@ GLGE.Text.prototype.updateCanvas=function(gl){
 	canvas.height=this.size*1.2;
 	 ctx = canvas.getContext("2d");
 	ctx.textBaseline="top";
-	ctx.font = this.size+"px "+this.font;
+	ctx.font = (this.extra||"") + " " + this.size+"px "+this.font;
 	this.aspect=canvas.width/canvas.height;
 	ctx.fillText(this.text, 0, 0);   
 	
@@ -9938,6 +10631,8 @@ GLGE.Text.prototype.updateCanvas=function(gl){
 	catch(e){gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas,null);}
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.bindTexture(gl.TEXTURE_2D, null);
@@ -9950,8 +10645,8 @@ GLGE.Text.prototype.updateCanvas=function(gl){
 GLGE.Text.prototype.GLRender=function(gl,renderType,pickindex){
 	if(!this.gl){
 		this.GLInit(gl);
-	}
-	if(renderType==GLGE.RENDER_DEFAULT || renderType==GLGE.RENDER_PICK){	
+	}	
+	if(renderType==GLGE.RENDER_DEFAULT || renderType==GLGE.RENDER_PICK || renderType==GLGE.RENDER_SHADOW){
 		//if look at is set then look
 		if(this.lookAt) this.Lookat(this.lookAt);
 		
@@ -9989,6 +10684,14 @@ GLGE.Text.prototype.GLRender=function(gl,renderType,pickindex){
 		}else{
 			GLGE.setUniform(gl,"1i",GLGE.getUniformLocation(gl,this.GLShaderProgram, "picktype"), 0);	
 		}
+		var distance=gl.scene.camera.getFar();
+		GLGE.setUniform(gl,"1f",GLGE.getUniformLocation(gl,this.GLShaderProgram, "distance"), distance);
+		if(renderType==GLGE.RENDER_SHADOW){
+			GLGE.setUniform(gl,"1i",GLGE.getUniformLocation(gl,this.GLShaderProgram, "depthrender"), 1);
+		}else{
+			GLGE.setUniform(gl,"1i",GLGE.getUniformLocation(gl,this.GLShaderProgram, "depthrender"), 0);
+		}
+		
 		
 		if(!this.GLShaderProgram.glarrays) this.GLShaderProgram.glarrays={};
 
@@ -10006,10 +10709,13 @@ GLGE.Text.prototype.GLRender=function(gl,renderType,pickindex){
 		if(!this.GLShaderProgram.glarrays.pMatrix) this.GLShaderProgram.glarrays.pMatrix=new Float32Array(gl.scene.camera.getProjectionMatrix());
 			else GLGE.mat4gl(gl.scene.camera.getProjectionMatrix(),this.GLShaderProgram.glarrays.pMatrix);
 		GLGE.setUniformMatrix(gl,"Matrix4fv",mUniform, true, this.GLShaderProgram.glarrays.pMatrix);
-
-		
+				
 		var farUniform = GLGE.getUniformLocation(gl,this.GLShaderProgram, "far");
 		GLGE.setUniform(gl,"1f",farUniform, gl.scene.camera.getFar());
+			
+		var alphaUniform = GLGE.getUniformLocation(gl,this.GLShaderProgram, "alpha");
+		GLGE.setUniform(gl,"1f",alphaUniform, this.alpha);
+		
 		//set the color
 		GLGE.setUniform3(gl,"3f",GLGE.getUniformLocation(gl,this.GLShaderProgram, "color"), this.color.r,this.color.g,this.color.b);
 		
@@ -10038,7 +10744,7 @@ GLGE.Text.prototype.createPlane=function(gl){
 	//create the faces
 	if(!this.GLfaces) this.GLfaces = gl.createBuffer();
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.GLfaces);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0,1,2,2,3,0]), gl.STATIC_DRAW);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([2,1,0,0,3,2]), gl.STATIC_DRAW);
 	this.GLfaces.itemSize = 1;
 	this.GLfaces.numItems = 6;
 }
@@ -10074,7 +10780,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_renderer.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -10353,7 +11059,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_camera.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -10547,13 +11253,17 @@ GLGE.Camera.prototype.setAspect=function(aspect){
 */
 GLGE.Camera.prototype.getProjectionMatrix=function(){
 	if(!this.pMatrix){
-		switch(this.type){
-			case GLGE.C_PERSPECTIVE:
-				this.pMatrix=GLGE.makePerspective(this.fovy, this.aspect, this.near, this.far);
-				break;
-			case GLGE.C_ORTHO:
-				this.pMatrix=GLGE.makeOrtho(-this.orthoscale*this.aspect,this.orthoscale*this.aspect,-this.orthoscale,this.orthoscale, this.near, this.far);
-				break;
+		if(this.pMatrixOveride){
+			this.pMatrix=this.pMatrixOveride;
+		}else{
+			switch(this.type){
+				case GLGE.C_PERSPECTIVE:
+					this.pMatrix=GLGE.makePerspective(this.fovy, this.aspect, this.near, this.far);
+					break;
+				case GLGE.C_ORTHO:
+					this.pMatrix=GLGE.makeOrtho(-this.orthoscale*this.aspect,this.orthoscale*this.aspect,-this.orthoscale,this.orthoscale, this.near, this.far);
+					break;
+			}
 		}
 	}
 	return this.pMatrix;
@@ -10565,6 +11275,7 @@ GLGE.Camera.prototype.getProjectionMatrix=function(){
 */
 GLGE.Camera.prototype.setProjectionMatrix=function(projection){
 	this.pMatrix=projection;
+	this.pMatrixOveride=projection;
 	return this;
 };
 /**
@@ -10638,7 +11349,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_light.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -10659,8 +11370,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.Light=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.color={r:1,g:1,b:1};
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Placeable,GLGE.Light);
 GLGE.augment(GLGE.Animatable,GLGE.Light);
@@ -11109,7 +11820,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_scene.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -11153,7 +11864,6 @@ GLGE.FOG_SKYQUADRATIC=5;
 * @augments GLGE.JSONLoader
 */
 GLGE.Scene=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
     GLGE.Group.call(this);
 	this.children=[];
 	this.camera=new GLGE.Camera();
@@ -11161,6 +11871,7 @@ GLGE.Scene=function(uid){
 	this.ambientColor={r:0,g:0,b:0};
 	this.fogColor={r:0.5,g:0.5,b:0.5};
 	this.passes=[];
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Group,GLGE.Scene);
 GLGE.Scene.prototype.camera=null;
@@ -11380,6 +12091,7 @@ GLGE.Scene.prototype.zSort=function(gl,objects){
 			var center=[matrix[3],matrix[7],matrix[11]];
 		}
 		objects[i].zdepth=center[0]*cameraMatrix[8]+center[1]*cameraMatrix[9]+center[2]*cameraMatrix[10]+cameraMatrix[11];
+		if(objects[i].object.zDepth) {objects[i].zdepth=objects[i].object.zDepth;}
 	}
 	objects.sort(GLGE.Scene.sortFunc);
 	return objects;
@@ -11598,7 +12310,7 @@ GLGE.Scene.prototype.render=function(gl){
 				
 				gl.viewport(0,0,parseFloat(lights[i].bufferWidth),parseFloat(lights[i].bufferHeight));
 				gl.clearDepth(1.0);
-				gl.clearColor(0, 0, 0, 0);
+				gl.clearColor(1, 1, 1, 1);
 				gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 					
 				var height=(parseFloat(lights[i].bufferHeight)/levels)|0;
@@ -11612,6 +12324,7 @@ GLGE.Scene.prototype.render=function(gl){
 					this.camera.matrix=lights[i].s_cache.imvmatrix;
 					//draw shadows
 					for(var n=0; n<renderObjects.length;n++){
+						if(renderObjects[n].object.getCastShadows && !renderObjects[n].object.getCastShadows()) continue;
 						if(renderObjects[n].object.className=="ParticleSystem") {continue;}
 						if(lights[i].getType()==GLGE.L_SPOT){
 							renderObjects[n].object.GLRender(gl, GLGE.RENDER_SHADOW,n,renderObjects[n].multiMaterial,lights[i].distance);
@@ -11714,25 +12427,25 @@ GLGE.Scene.prototype.renderPass=function(gl,renderObjects,offsetx,offsety,width,
 	var transObjects=[];
 	gl.disable(gl.BLEND);
 	for(var i=0; i<renderObjects.length;i++){
-		if(!renderObjects[i].object.zTrans && renderObjects[i].object!=self) renderObjects[i].object.GLRender(gl,type,0,renderObjects[i].multiMaterial);
+		if((!renderObjects[i].object.zTrans ||  type!=GLGE.RENDER_DEFAULT) && renderObjects[i].object!=self) renderObjects[i].object.GLRender(gl,type,0,renderObjects[i].multiMaterial);
 			else if(renderObjects[i].object!=self) transObjects.push(renderObjects[i]);
 	}
 
 	gl.enable(gl.BLEND);
 	transObjects=this.zSort(gl,transObjects);
 	for(var i=0; i<transObjects.length;i++){
-	if(transObjects[i].object.blending){
-		if(transObjects[i].object.blending.length=4){
-			gl.blendFuncSeparate(gl[transObjects[i].object.blending[0]],gl[transObjects[i].object.blending[1]],gl[transObjects[i].object.blending[2]],gl[transObjects[i].object.blending[3]]);
-		}else{
-			gl.blendFunc(gl[transObjects[i].object.blending[0]],gl[transObjects[i].object.blending[1]]);
+		if(transObjects[i].object.blending){
+			if(transObjects[i].object.blending.length=4){
+				gl.blendFuncSeparate(gl[transObjects[i].object.blending[0]],gl[transObjects[i].object.blending[1]],gl[transObjects[i].object.blending[2]],gl[transObjects[i].object.blending[3]]);
+			}else{
+				gl.blendFunc(gl[transObjects[i].object.blending[0]],gl[transObjects[i].object.blending[1]]);
+			}
 		}
-	}
-	if(transObjects[i].object.depthTest===false){
-		gl.disable(this.gl.DEPTH_TEST);   
-	}else{
-		gl.enable(this.gl.DEPTH_TEST);   
-	}
+		if(transObjects[i].object.depthTest===false){
+			gl.disable(this.gl.DEPTH_TEST);   
+		}else{
+			gl.enable(this.gl.DEPTH_TEST);   
+		}
 		if(renderObjects[i]!=self) transObjects[i].object.GLRender(gl, type,0,transObjects[i].multiMaterial);
 	}
 
@@ -11834,6 +12547,10 @@ GLGE.Scene.prototype.ray=function(origin,direction){
 		gl.disable(gl.BLEND);
 		gl.scene=this;
 		var objects=this.getObjects();
+		/*if(this.culling){
+			var cvp=this.camera.getViewProjection();
+			objects=this.objectsInViewFrustum(objects,cvp);
+		}*/
 		for(var i=0; i<objects.length;i++){
 			if(objects[i].pickable) objects[i].GLRender(gl,GLGE.RENDER_PICK,i+1);
 		}
@@ -11842,12 +12559,11 @@ GLGE.Scene.prototype.ray=function(origin,direction){
 		var data = new Uint8Array(8 * 1 * 4);
 		gl.readPixels(0, 0, 8, 1, gl.RGBA,gl.UNSIGNED_BYTE, data);
 		
-		
 		var norm=[data[4]/255,data[5]/255,data[6]/255];
 		var normalsize=Math.sqrt(norm[0]*norm[0]+norm[1]*norm[1]+norm[2]*norm[2])*0.5;
 		norm=[norm[0]/normalsize-1,norm[1]/normalsize-1,norm[2]/normalsize-1];
 		var obj=objects[data[0]+data[1]*256+data[2]*65536-1];
-		
+
 		var dist=(data[10]/255+0.00390625*data[9]/255+0.0000152587890625*data[8]/255)*this.camera.far;
 		var tex=[];
 		tex[0]=(data[14]/255+0.00390625*data[13]/255+0.0000152587890625*data[12]/255);
@@ -11918,7 +12634,8 @@ GLGE.Scene.prototype.makeRay=function(x,y){
 };
 
 
-})(GLGE);/*
+})(GLGE);
+/*
 GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
@@ -11971,6 +12688,7 @@ GLGE.ParticleSystem=function(uid){
 	this.endMinAcceleration={x:0,y:0,z:0};
 	this.startColor={r:0,g:0,b:0,a:1};
 	this.endColor={r:0,g:0,b:0,a:1};
+	GLGE.Assets.registerAsset(this,uid);
 }
 
 GLGE.augment(GLGE.Placeable,GLGE.ParticleSystem);
@@ -12955,7 +13673,7 @@ GLGE.MD2.prototype.getAbsolutePath=function(path,relativeto){
 			initpath=[];
 		}
 		var locpath=path.split("/");
-		for(i=0;i<locpath.length;i++){
+		for(var i=0;i<locpath.length;i++){
 			if(locpath[i]=="..") initpath.pop();
 				else if(locpath[i]!="") initpath.push(locpath[i]);
 		}
@@ -12980,11 +13698,11 @@ GLGE.MD2.prototype.setMD2Animation=function(anim,loop){
 	this.MD2Anim=anim;
 	if(loop!=undefined) this.MD2Loop=loop;
 	this.MD2Started=+new Date;
-	if(this.MD2Animations[this.url]){
-	this.MD2LastAnimFrame=this.lastMD2Frame;
-	var a=this.MD2Animations[this.url][anim];
-	this.MD2StartFrame=a[0];
-	this.MD2EndFrame=a[1];
+	if(this.MD2Animations[this.url] && this.MD2Animations[this.url][anim]){
+		this.MD2LastAnimFrame=this.lastMD2Frame;
+		var a=this.MD2Animations[this.url][anim];
+		this.MD2StartFrame=a[0];
+		this.MD2EndFrame=a[1];
 	}
 	return this;
 }
@@ -13339,9 +14057,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 GLGE.FILTER_POST=0;
 GLGE.FILTER_SKY=1;
 
-GLGE.Filter2d=function(){
-	
+GLGE.Filter2d=function(uid){
+	GLGE.Assets.registerAsset(this,uid);
 }
+GLGE.augment(GLGE.QuickNotation,GLGE.Filter2d);
 GLGE.Filter2d.prototype.renderDepth=false;
 GLGE.Filter2d.prototype.renderNormal=false;
 GLGE.Filter2d.prototype.renderEmit=false;
@@ -13581,7 +14300,7 @@ GLGE.Filter2d.prototype.GLSetUniforms=function(gl,pass){
 		GLGE.setUniformMatrix(gl,"Matrix4fv",GLGE.getUniformLocation(gl,this.passes[pass].program, "invViewProj"),false,glmat);
 	}
 
-	for(key in this.uniforms){
+	for(var key in this.uniforms){
 		var uniform=this.uniforms[key];
 		if(uniform.type=="Matrix4fv"){
 			GLGE.setUniformMatrix(gl,"Matrix4fv",GLGE.getUniformLocation(gl,this.passes[pass].program, key),false,uniform.value);
@@ -13769,14 +14488,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @class Postprocessing glow filter
 * @augments GLGE.Filter2d
 */
-GLGE.FilterGlow=function(){
+GLGE.FilterGlow=function(uid){
 	this.setEmitBufferWidth(256);
 	this.setEmitBufferHeight(256);
+	GLGE.Assets.registerAsset(this,uid);
 };
 GLGE.augment(GLGE.Filter2d,GLGE.FilterGlow);
 GLGE.FilterGlow.prototype.renderEmit=true;
 GLGE.FilterGlow.prototype.blur=1.2;
 GLGE.FilterGlow.prototype.intensity=3;
+GLGE.FilterGlow.prototype.fxaacutoff=2;
 
 GLGE.FilterGlow.prototype.setEmitBufferWidth=function(value){
 	GLGE.Filter2d.prototype.setEmitBufferWidth.call(this,value);
@@ -13795,6 +14516,16 @@ GLGE.FilterGlow.prototype.setBlur=function(blur){
 }
 GLGE.FilterGlow.prototype.setIntensity=function(intensity){
 	this.intensity=intensity;
+	this.createPasses();
+	return this;
+}
+GLGE.FilterGlow.prototype.setFXAA=function(value){
+	this.useFXAA=value;
+	this.createPasses();
+	return this;
+}
+GLGE.FilterGlow.prototype.setFXAACutoff=function(value){
+	this.fxaacutoff=value;
 	this.createPasses();
 	return this;
 }
@@ -13847,9 +14578,63 @@ GLGE.FilterGlow.prototype.createPasses=function(){
 	pass2.push("gl_FragColor = vec4(color.rgb*"+(this.intensity.toFixed(5))+"+texture2D(GLGE_RENDER,texCoord).rgb,1.0);");
 	pass2.push("}");
 	
+	
 	this.passes=[];
 	this.addPass(pass1.join(""));
 	this.addPass(pass2.join(""));
+	
+	if(this.useFXAA){
+		var pass3=[]
+		pass3.push("precision highp float;");
+		pass3.push("uniform sampler2D GLGE_PASS1;");
+		pass3.push("varying vec2 texCoord;");
+		pass3.push("vec2 inverse_buffer_size=vec2(1.0/1280.0,1.0/720.0);");
+		pass3.push("#define FXAA_REDUCE_MIN   (1.0/128.0)");
+		pass3.push("#define FXAA_REDUCE_MUL   (1.0/16.0)");
+		pass3.push("#define FXAA_SPAN_MAX     8.0");
+		pass3.push("void  main(){");
+		pass3.push("	vec3 rgbNW = texture2D(GLGE_PASS1,  (gl_FragCoord.xy + vec2(-1.0,-1.0)) * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 rgbNE = texture2D(GLGE_PASS1,  (gl_FragCoord.xy + vec2(1.0,-1.0)) * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 rgbSW = texture2D(GLGE_PASS1,  (gl_FragCoord.xy + vec2(-1.0,1.0)) * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 rgbSE = texture2D(GLGE_PASS1,  (gl_FragCoord.xy + vec2(1.0,1.0)) * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 rgbM  = texture2D(GLGE_PASS1,  gl_FragCoord.xy  * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 luma = vec3(0.299, 0.587, 0.114);");
+		pass3.push("	float lumaNW = dot(rgbNW, luma);");
+		pass3.push("	float lumaNE = dot(rgbNE, luma);");
+		pass3.push("	float lumaSW = dot(rgbSW, luma);");
+		pass3.push("	float lumaSE = dot(rgbSE, luma);");
+		pass3.push("	float lumaM  = dot(rgbM,  luma);");
+		pass3.push("	float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));");
+		pass3.push("	float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));");
+			
+		pass3.push("	vec2 dir;");
+		pass3.push("	dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));");
+		pass3.push("	dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));");
+			
+		pass3.push("	float dirReduce = max(");
+		pass3.push("	(lumaNW + lumaNE + lumaSW + lumaSE) * (0.25 * FXAA_REDUCE_MUL),");
+		pass3.push("	FXAA_REDUCE_MIN);");
+			
+		pass3.push("	float rcpDirMin = 1.0/(min(abs(dir.x), abs(dir.y)) + dirReduce);");
+		pass3.push("	dir = min(vec2( FXAA_SPAN_MAX,  FXAA_SPAN_MAX),");
+		pass3.push("	max(vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),");
+		pass3.push("	dir * rcpDirMin)) * inverse_buffer_size;");
+			  
+		pass3.push("	vec3 rgbA = 0.5 * (");
+		pass3.push("	texture2D(GLGE_PASS1,   gl_FragCoord.xy  * inverse_buffer_size + dir * (1.0/3.0 - 0.5)).xyz +");
+		pass3.push("	texture2D(GLGE_PASS1,   gl_FragCoord.xy  * inverse_buffer_size + dir * (2.0/3.0 - 0.5)).xyz);");
+			
+		pass3.push("	vec3 rgbB = rgbA * 0.5 + 0.25 * (");
+		pass3.push("	texture2D(GLGE_PASS1,  gl_FragCoord.xy  * inverse_buffer_size + dir *  - 0.5).xyz +");
+		pass3.push("	texture2D(GLGE_PASS1,  gl_FragCoord.xy  * inverse_buffer_size + dir * 0.5).xyz);");
+		pass3.push("	float lumaB = dot(rgbB, luma);");
+		pass3.push("	if((lumaB < lumaMin) || (lumaB > lumaMax)) gl_FragColor = vec4(rgbA,1.0);");
+		pass3.push("	    else gl_FragColor = vec4(rgbB,1.0);");
+		pass3.push("	if(length(rgbM)>"+this.fxaacutoff.toFixed(2)+") gl_FragColor = vec4(rgbM,1.0);");
+		pass3.push("}");
+		this.addPass(pass3.join("\n"));
+	}
+	
 }
 
 
@@ -14094,10 +14879,59 @@ GLGE.FilterAO.prototype.createPasses=function(){
 	if(this.useRender) pass2.push("gl_FragColor = vec4(texture2D(GLGE_RENDER, texCoord.xy).rgb*gl_FragColor.r,1.0);");
 	pass2.push("}");
 	
-
+	var pass3=[]
+		pass3.push("precision highp float;");
+		pass3.push("uniform sampler2D GLGE_PASS1;");
+		pass3.push("varying vec2 texCoord;");
+		pass3.push("vec2 inverse_buffer_size=vec2(1.0/"+this.gl.canvas.width.toFixed(1)+",1.0/"+this.gl.canvas.height.toFixed(1)+");");
+		pass3.push("#define FXAA_REDUCE_MIN   (1.0/128.0)");
+		pass3.push("#define FXAA_REDUCE_MUL   (1.0/16.0)");
+		pass3.push("#define FXAA_SPAN_MAX     8.0");
+		pass3.push("void  main(){");
+		pass3.push("	vec3 rgbNW = texture2D(GLGE_PASS1,  (gl_FragCoord.xy + vec2(-1.0,-1.0)) * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 rgbNE = texture2D(GLGE_PASS1,  (gl_FragCoord.xy + vec2(1.0,-1.0)) * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 rgbSW = texture2D(GLGE_PASS1,  (gl_FragCoord.xy + vec2(-1.0,1.0)) * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 rgbSE = texture2D(GLGE_PASS1,  (gl_FragCoord.xy + vec2(1.0,1.0)) * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 rgbM  = texture2D(GLGE_PASS1,  gl_FragCoord.xy  * inverse_buffer_size).xyz;");
+		pass3.push("	vec3 luma = vec3(0.299, 0.587, 0.114);");
+		pass3.push("	float lumaNW = dot(rgbNW, luma);");
+		pass3.push("	float lumaNE = dot(rgbNE, luma);");
+		pass3.push("	float lumaSW = dot(rgbSW, luma);");
+		pass3.push("	float lumaSE = dot(rgbSE, luma);");
+		pass3.push("	float lumaM  = dot(rgbM,  luma);");
+		pass3.push("	float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));");
+		pass3.push("	float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));");
+			
+		pass3.push("	vec2 dir;");
+		pass3.push("	dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));");
+		pass3.push("	dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));");
+			
+		pass3.push("	float dirReduce = max(");
+		pass3.push("	(lumaNW + lumaNE + lumaSW + lumaSE) * (0.25 * FXAA_REDUCE_MUL),");
+		pass3.push("	FXAA_REDUCE_MIN);");
+			
+		pass3.push("	float rcpDirMin = 1.0/(min(abs(dir.x), abs(dir.y)) + dirReduce);");
+		pass3.push("	dir = min(vec2( FXAA_SPAN_MAX,  FXAA_SPAN_MAX),");
+		pass3.push("	max(vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),");
+		pass3.push("	dir * rcpDirMin)) * inverse_buffer_size;");
+			  
+		pass3.push("	vec3 rgbA = 0.5 * (");
+		pass3.push("	texture2D(GLGE_PASS1,   gl_FragCoord.xy  * inverse_buffer_size + dir * (1.0/3.0 - 0.5)).xyz +");
+		pass3.push("	texture2D(GLGE_PASS1,   gl_FragCoord.xy  * inverse_buffer_size + dir * (2.0/3.0 - 0.5)).xyz);");
+			
+		pass3.push("	vec3 rgbB = rgbA * 0.5 + 0.25 * (");
+		pass3.push("	texture2D(GLGE_PASS1,  gl_FragCoord.xy  * inverse_buffer_size + dir *  - 0.5).xyz +");
+		pass3.push("	texture2D(GLGE_PASS1,  gl_FragCoord.xy  * inverse_buffer_size + dir * 0.5).xyz);");
+		pass3.push("	float lumaB = dot(rgbB, luma);");
+		pass3.push("	if((lumaB < lumaMin) || (lumaB > lumaMax)) gl_FragColor = vec4(rgbA,1.0);");
+		pass3.push("	    else gl_FragColor = vec4(rgbB,1.0);");
+		pass3.push("	if(length(rgbM)>10.0) gl_FragColor = vec4(rgbM,1.0);");
+		pass3.push("}");
+		
 	this.passes=[];
 	this.addPass(pass1.join(""),width,height);
 	this.addPass(pass2.join(""));
+	this.addPass(pass3.join("\n"));
 }
 
 
@@ -14154,12 +14988,12 @@ if(typeof(GLGE) == "undefined"){
 * @augments GLGE.Group
 */
 GLGE.Collada=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	GLGE.Group.call(this);
 	this.children=[];
 	this.actions={};
 	this.boneIdx=0;
 	this.actionsIdx=0;
+	GLGE.Assets.registerAsset(this,uid);
 
 
 	
@@ -14443,8 +15277,8 @@ GLGE.Collada.prototype.getMeshes=function(id,skeletonData){
 		var cnt=0;
 		for(n=0;n<vcount.length;n++){
 		
-			for(j=0; j<vcount[n]-2;j++){
-				for(k=0;k<=maxoffset;k++){
+			for(var j=0; j<vcount[n]-2;j++){
+				for(var k=0;k<=maxoffset;k++){
 					tris.push(faces[cnt+k]);
 				}
 				for(k=0;k<=maxoffset;k++){
@@ -14613,7 +15447,7 @@ GLGE.Collada.prototype.getMeshes=function(id,skeletonData){
                 }
             }
         }
-
+	
         if (!this.isSketchupFile())
             windingOrder=GLGE.Mesh.WINDING_ORDER_UNKNOWN;
 		function min(a,b){
@@ -15205,19 +16039,19 @@ GLGE.Collada.prototype.getAnimationSampler=function(id,rotation){
 		block=inputs[i].getAttribute("semantic");
 		inputsArray.push({block:block,data:data});
 	}
-	for(n=0;n<inputsArray.length;n++){
+	for(var n=0;n<inputsArray.length;n++){
 		block=inputsArray[n].block;
 		outputData[block]={};
 		outputData[block].data=[];
 		outputData[block].names=[];
-		for(k=0;k<inputsArray[n].data.array.length;k=k+inputsArray[n].data.stride){
+		for(var k=0;k<inputsArray[n].data.array.length;k=k+inputsArray[n].data.stride){
 			var pcnt=0;
 			for(i=0;i<inputsArray[n].data.pmask.length;i++){
 				if(inputsArray[n].data.pmask[i]){
 					outputData[block].names.push(inputsArray[n].data.pmask[i].name);
 					if(inputsArray[n].data.pmask[i].type=="float4x4"){
 						outputData[block].stride=16;
-						for(j=0;j<16;j++){
+						for(var j=0;j<16;j++){
 							outputData[block].data.push(inputsArray[n].data.array[j+k+inputsArray[n].data.offset+i]);
 						}
 					}else{
@@ -15289,6 +16123,19 @@ GLGE.Collada.prototype.getAnimationVector=function(channels){
 	var maxFrame=0;
 	//get the initial state of the target
 	var targetNode=this.xml.getElementById(channels[0].target[0]);
+	
+	//blender 2.5a bug work round
+	var target=channels[0].target[0].toString()
+	if(!targetNode){
+		var target=target.substring(target.indexOf("_")+1);
+		targetNode=this.xml.getElementById(target);
+	}
+	if(!targetNode){
+		var target=target.substring(target.indexOf("_")+1);
+		targetNode=this.xml.getElementById(target);
+	}
+	//end work round
+	
 	//get the initial transforms for the target node
 	var child=targetNode.firstChild;
 	var transforms=[];
@@ -15542,9 +16389,19 @@ GLGE.Collada.prototype.getAnimations=function(){
 				}
 			}
 			var action=new GLGE.Action();
-			for(target in channelGroups){
+			for(var target in channelGroups){
 				var animVector=this.getAnimationVector(channelGroups[target]);
 				var targetNode=this.xml.getElementById(target);
+				//blender 2.5a bug work round
+				if(!targetNode){
+					target=target.substring(target.indexOf("_")+1);
+					targetNode=this.xml.getElementById(target);
+				}
+				if(!targetNode){
+					target=target.substring(target.indexOf("_")+1);
+					targetNode=this.xml.getElementById(target);
+				}
+				//end work round
 				for(var i=0; i<targetNode.GLGEObjects.length;i++){
 					var ac=new GLGE.ActionChannel();
 
@@ -15558,7 +16415,7 @@ GLGE.Collada.prototype.getAnimations=function(){
 		}
 	}
 	actionCache[this.url]=this.actions;
-	for(n in this.actions) {this.setAction(this.actions[n],0,true);break}
+	for(var n in this.actions) {this.setAction(this.actions[n],0,true);break}
 }
 /**
 * Adds a collada action
@@ -15676,7 +16533,7 @@ GLGE.Collada.prototype.getInstanceController=function(node){
 	inputs=vertexWeight.getElementsByTagName("input");
 	var inputArray=[];
 	var outputData={};
-	for(n=0;n<inputs.length;n++){
+	for(var n=0;n<inputs.length;n++){
 		block=inputs[n].getAttribute("semantic");
 		inputs[n].data=this.getSource(inputs[n].getAttribute("source").substr(1));
 		inputs[n].block=block;
@@ -15952,13 +16809,13 @@ GLGE.Collada.prototype.initVisualScene=function(){
         transformRoot = new GLGE.Group();
         this.addChild(transformRoot);
         if (up_axis[0]!="Z"&&up_axis[0]!="z") {
-            this.setRotMatrix(GLGE.Mat4([0, -1 , 0,  0,
+            transformRoot.setRotMatrix(GLGE.Mat4([0, -1 , 0,  0,
 					                     1, 0, 0, 0,
 					                     0, 0, 1, 0,
 					                     0, 0, 0, 1]));
           
         }else {
-            this.setRotMatrix(GLGE.Mat4([1, 0 , 0,  0,
+            transformRoot.setRotMatrix(GLGE.Mat4([1, 0 , 0,  0,
 					                     0, 0, 1, 0,
 					                     0, -1, 0, 0,
 					                     0, 0, 0, 1]));
@@ -16892,12 +17749,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.Object
 */
 GLGE.Wavefront=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.multimaterials=[];
 	this.materials={};
 	this.instances=[];
 	this.queue=[];
 	GLGE.Object.call(this,uid);
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Object,GLGE.Wavefront);
 /**
@@ -17113,7 +17970,7 @@ GLGE.Wavefront.prototype.createMultiMaterial=function(idxDataOrig,verts,norms,te
 	var uv=[];
 	var newfaces=[];
 	var idxData=[];
-	for(i=0;i<faces.length;i++){
+	for(var i=0;i<faces.length;i++){
 		var data=idxDataOrig[faces[i]];
 		if(idxData.indexOf(data)==-1 || !smooth){
 			idxData.push(data);
@@ -17342,13 +18199,13 @@ GLGE.Scene.prototype.physicsPickObject=function(x,y,self){
 * @param {array} delta the segment delta
 * @returns segment test result object {object,normal,distance,position}
 */
-GLGE.Scene.prototype.segmentTest=function(start, delta){
+GLGE.Scene.prototype.segmentTest=function(start, delta,self){
 	if(!this.physicsSystem || !this.physicsSystem._collisionSystem) return false;
 	
 	var seg=new jigLib.JSegment(start,delta);
 	var out={};
 	
-	if(this.physicsSystem._collisionSystem.segmentIntersect(out,seg)){
+	if(this.physicsSystem._collisionSystem.segmentIntersect(out,seg, self ? self.jigLibObj : null)){
 		var length=Math.sqrt(delta[0]*delta[0]+delta[1]*delta[1]+delta[2]*delta[2]);
 		return {object:out.rigidBody.GLGE,normal:out.normal,distance:out.frac*length,position:out.position};
 	}
@@ -17381,7 +18238,7 @@ GLGE.Scene.prototype.physicsTick=function(dt,noIntegrate){
 	}
 	for(var i=0;i<objects.length;i++){
 		if(objects[i].jigLibObj) {
-			objects[i].preProcess();
+			objects[i].preProcess(dt);
 		}
 	}
 	if(!noIntegrate) this.physicsSystem.integrate(dt);
@@ -17403,7 +18260,7 @@ GLGE.Scene.prototype.setGravity=function(gravity){
 * Gets the gravity of the physics system
 * @returns {number}
 */
-GLGE.Scene.prototype.setGravity=function(gravity){
+GLGE.Scene.prototype.getGravity=function(gravity){
 	return this.physicsSystem.getGravity(gravity);
 }
 
@@ -17496,7 +18353,7 @@ GLGE.PhysicsAbstract.prototype.getType=function(value){
 /**
 * function run before proceeding with the physics sim
 */
-GLGE.PhysicsAbstract.prototype.preProcess=function(){
+GLGE.PhysicsAbstract.prototype.preProcess=function(dt){
 	if(this.sync){
 		//update the oriantation and position within jiglib
 		var matrix=this.getModelMatrix();
@@ -18134,6 +18991,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (function(GLGE){
 
+GLGE.PHYSICS_XAXIS=[1,0,0,0];
+GLGE.PHYSICS_YAXIS=[0,1,0,0];
+GLGE.PHYSICS_ZAXIS=[0,0,1,0];
+GLGE.PHYSICS_NEGXAXIS=[-1,0,0,0];
+GLGE.PHYSICS_NEGYAXIS=[0,-1,0,0];
+GLGE.PHYSICS_NEGZAXIS=[0,0,-1,0];
 /**
 * @class A wrapping class for jiglib spheres
 * @augments GLGE.PhysicsAbstract
@@ -18385,4 +19248,1228 @@ GLGE.Scene.prototype.removePhysicsConstraintPoint=function(constraint){
 }
 
 
+})(GLGE);/*
+GLGE WebGL Graphics Engine
+Copyright (c) 2010, Paul Brunt
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of GLGE nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL PAUL BRUNT BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/**
+ * @fileOverview
+ * @name glge_physicscar.js
+ * @author me@paulbrunt.co.uk
+ */
+ (function(GLGE){
+ 
+/**
+* @class Physics Car class
+* @augments GLGE.PhysicsBox
+* @see GLGE.PhysicsWheel
+*/
+GLGE.PhysicsCar=function(uid){
+	GLGE.PhysicsBox.call(this,uid);
+	this.wheels=[];
+	this.setRotationalVelocityDamping([0.1,0.6,0.1]);
+	this.setLinearVelocityDamping([0.996,0.92,0.996]);
+	return this;
+}
+GLGE.augment(GLGE.PhysicsBox,GLGE.PhysicsCar);
+GLGE.PhysicsCar.prototype.className="PhysicsCar";
+GLGE.Group.prototype.addPhysicsCar=GLGE.Group.prototype.addChild;
+GLGE.Scene.prototype.addPhysicsCar=GLGE.Group.prototype.addChild;
+/**
+* Applies a driving force to the car
+* @param {number} force the item driving force to apply to each powered wheel
+*/
+GLGE.PhysicsCar.prototype.drive=function(force){
+	for(var i=0;i<this.wheels.length;i++){
+		var wheel=this.wheels[i];
+		if(wheel.powered) wheel.drive(force);
+	}
+	return this;
+}
+/**
+* Applies a brake to the car
+* @param {number} brake the level of braking
+*/
+GLGE.PhysicsCar.prototype.brake=function(brake){
+	for(var i=0;i<this.wheels.length;i++){
+		if(this.wheels[i].powered) this.wheels[i].brake(brake);
+	}
+	return this;
+}
+/**
+* Adds a wheel to the car
+* @param {GLGE.PhysicsWheel} wheel a wheel to add to the car
+*/
+GLGE.PhysicsCar.prototype.addPhysicsWheel=function(wheel){
+	this.wheels.push(wheel);
+	return GLGE.PhysicsBox.prototype.addChild.call(this,wheel);
+}
+/**
+* Removes a wheel from the car
+* @param {GLGE.PhysicsWheel} wheel a wheel to remove
+*/
+GLGE.PhysicsCar.prototype.removeWheel=function(wheel){
+	var idx=this.wheels.indexOf(wheel);
+	if(idx>-1) this.wheels.splice(idx,1);
+	return GLGE.PhsyicsBox.prototype.addChild.call(this,wheel);
+}
+/**
+* does the physics stuff
+* @private
+*/
+GLGE.PhysicsCar.prototype.getScene=function(){
+	var child=this;
+	while(child.parent) child=child.parent;
+	return child;
+}
+/**
+* does the physics stuff
+* @private
+*/
+GLGE.PhysicsCar.prototype.preProcess=function(dt){
+	var scene=this.getScene();
+	var velocity=this.getVelocity();
+	var carMass=this.getMass();
+	var wheels=this.wheels
+	for(var i=0;i<wheels.length;i++){
+		var wheel=wheels[i];
+		var mat=wheel.getModelMatrix();
+		var tangent=GLGE.toUnitVec3([mat[2],mat[6],mat[10]]);
+		var up=GLGE.toUnitVec3([mat[1],mat[5],mat[9]]);
+		var forward=GLGE.toUnitVec3([mat[0],mat[4],mat[8]]);
+		var position=[mat[3],mat[7],mat[11]];
+			
+		var wheelRadius=wheel.radius;
+		var travel=wheel.travel;
+		var spring=wheel.spring;
+		var sideFriction=wheel.sideFriction;
+		var frontFriction=wheel.frontFriction;
+			
+		var springForce=0;
+		var result=scene.segmentTest(position,GLGE.scaleVec3(up,-travel-wheelRadius),this);
+		if(result){
+			var distanceToFloor=result.distance-wheelRadius;
+			if(distanceToFloor<travel){
+				springForce=(travel-distanceToFloor)/travel*spring; 
+				this.addWorldForce(GLGE.scaleVec3(up,springForce),position);
+				wheel.innerGroup.setLocY(wheelRadius-result.distance);
+			}
+			//turning force
+			//var sideForce=springForce*sideFriction; //although correct having a varible side force makes things very difficult to control
+			var sideForce=sideFriction;
+			var dot=GLGE.scaleVec3(tangent,-GLGE.dotVec3(tangent,velocity)*sideForce);
+			this.addWorldForce(dot,position);
+		}else{
+			wheel.innerGroup.setLocY(-travel);
+		}
+
+		var maxForwardForce=springForce*frontFriction; //frictional force
+		var maxdw=(maxForwardForce*dt*dt)/wheelRadius;
+		var dw=0;
+			
+		//do the wheel turn
+		if(wheel.oldPos){
+			var delta=GLGE.dotVec3(GLGE.subVec3(position,wheel.oldPos),forward)/wheelRadius;
+			var dw=delta/dt-wheel.angVel;
+			if(dw<-maxdw) dw=-maxdw;
+			if(dw>maxdw) dw=maxdw;
+		}
+		if(wheel.driveForce){
+			var drive=wheel.driveForce*(1-wheel.braking);
+			if(drive<-maxForwardForce) drive=maxForwardForce;
+			if(drive>maxForwardForce) drive=maxForwardForce;
+			this.addWorldForce(GLGE.scaleVec3(forward,drive),position);
+			dw+=(wheel.driveForce/carMass*dt)/wheelRadius;
+		}
+		if(wheel.braking){
+			var frontVel=GLGE.dotVec3(velocity,forward);
+			var braking=-wheel.braking*frontVel/dt
+			if(braking<-maxForwardForce) braking=-maxForwardForce;
+			if(braking>maxForwardForce) braking=maxForwardForce;
+			this.addWorldForce(GLGE.scaleVec3(forward,braking),position);
+		}
+			
+		wheel.angVel+=dw;
+		if(wheel.brake) wheel.angVel*=(1-wheel.braking);
+		wheel.innerGroup.setRotZ(wheel.innerGroup.getRotZ()-wheel.angVel*dt);
+		wheel.angVel*=0.995;
+		wheel.oldPos=position;
+			
+	}
+	
+	GLGE.PhysicsBox.prototype.preProcess.call(this,dt);
+
+}
+
+
+/**
+* @class physics wheel class used with PhysicsCar class 
+* @augments GLGE.Group
+* @see GLGE.PhysicsBox
+*/
+GLGE.PhysicsWheel=function(uid){
+	GLGE.Group.call(this,uid);
+	this.innerGroup=new GLGE.Group;
+	GLGE.Group.prototype.addChild.call(this,this.innerGroup);
+	return this;
+}
+GLGE.augment(GLGE.Group,GLGE.PhysicsWheel);
+GLGE.PhysicsWheel.prototype.radius=1;
+GLGE.PhysicsWheel.prototype.travel=0.75;
+GLGE.PhysicsWheel.prototype.angVel=0;
+GLGE.PhysicsWheel.prototype.spring=90;
+GLGE.PhysicsWheel.prototype.braking=0;
+GLGE.PhysicsWheel.prototype.driveForce=0;
+GLGE.PhysicsWheel.prototype.powered=false;
+GLGE.PhysicsWheel.prototype.sideFriction=3; //sideways friction co-efficient
+GLGE.PhysicsWheel.prototype.frontFriction=3; //front friction force
+GLGE.PhysicsWheel.prototype.className="PhysicsWheel";
+
+/**
+* Adds a child to the wheel container
+* @param {object} child a GLGE object to represent the wheel
+*/
+GLGE.PhysicsWheel.prototype.addChild=function(child){
+	return this.innerGroup.addChild(child);
+}
+/**
+* Removes a child to the wheel container
+* @param {object} child a GLGE object to represent the wheel
+*/
+GLGE.PhysicsWheel.prototype.removeChild=function(child){
+	return this.innerGroup.removeChild(child);
+}
+GLGE.PhysicsWheel.prototype.addGroup=GLGE.PhysicsWheel.prototype.addChild;
+GLGE.PhysicsWheel.prototype.addCollada=GLGE.PhysicsWheel.prototype.addChild;
+GLGE.PhysicsWheel.prototype.addObject=GLGE.PhysicsWheel.prototype.addChild;
+GLGE.PhysicsWheel.prototype.addMD2=GLGE.PhysicsWheel.prototype.addChild;
+GLGE.PhysicsWheel.prototype.addMD3=GLGE.PhysicsWheel.prototype.addChild;
+GLGE.PhysicsWheel.prototype.addWavefront=GLGE.PhysicsWheel.prototype.addChild;
+
+
+/**
+* Sets the wheel to be a powered wheel
+* @param {boolean} powered flag indicateding if wheel is powered
+*/
+GLGE.PhysicsWheel.prototype.setPowered=function(powered){
+	this.powered=powered;
+	return this;
+}
+
+/**
+* Sets the wheel Radius
+* @param {number} radius the wheel radius
+*/
+GLGE.PhysicsWheel.prototype.setRadius=function(radius){
+	this.radius=radius;
+	return this;
+}
+/**
+* Sets the  suspension spring distance
+* @param {number} radius the wheel radius
+*/
+GLGE.PhysicsWheel.prototype.setSpring=function(spring){
+	this.spring=spring;
+	return this;
+}
+/**
+* Sets the suspension travel distance
+* @param {number} travel the suspension travel
+*/
+GLGE.PhysicsWheel.prototype.setTravel=function(travel){
+	this.travel=travel;
+	return this;
+}
+/**
+* Sets the front friction coefficient
+* @param {number} friction the front fricition coefficient
+*/
+GLGE.PhysicsWheel.prototype.setFrontFriction=function(friction){
+	this.frontFriction=friction;
+	return this;
+}
+/**
+* Sets the side friction coefficient
+* @param {number} friction the side fricition coefficient
+*/
+GLGE.PhysicsWheel.prototype.setSideFriction=function(friction){
+	this.sideFriction=friction;
+	return this;
+}
+/**
+* Sets the wheel Rotation
+* @param {number} rotation the rotation of the wheel
+*/
+GLGE.PhysicsWheel.prototype.setWheelRotation=function(rotation){
+	this.setRotY(rotation);
+	return this;
+}
+/**
+* Gets the wheel Rotation
+* @returns the wheel roation in radians
+*/
+GLGE.PhysicsWheel.prototype.getWheelRotation=function(rotation){
+	return this.getRotY();
+}
+/**
+* Gets the wheel Radius
+* @returns the wheel radius
+*/
+GLGE.PhysicsWheel.prototype.getRadius=function(){
+	return this.radius;
+}
+/**
+* Gets the suspension spring
+* @returns the wheel radius
+*/
+GLGE.PhysicsWheel.prototype.getSpring=function(){
+	return this.spring;
+}
+/**
+* Gets the suspension travel distance
+* @returns the suspension travel
+*/
+GLGE.PhysicsWheel.prototype.getTravel=function(){
+	return this.travel;
+}
+/**
+* Gets the front friction coefficient
+* @returns the front fricition coefficient
+*/
+GLGE.PhysicsWheel.prototype.getFrontFriction=function(){
+	return this.frontFriction;
+}
+/**
+* Gets the side friction coefficient
+* @returns the side fricition coefficient
+*/
+GLGE.PhysicsWheel.prototype.getSideFriction=function(){
+	return this.sideFriction;
+}
+
+/**
+* Sets a driving force for the wheel
+* @param {number} force the driving force in N
+*/
+GLGE.PhysicsWheel.prototype.drive=function(force){
+	this.driveForce=force;
+	return this;
+}
+/**
+* Sets the braking level
+* @param {number} brake 0-1 value indicating the level of braking
+*/
+GLGE.PhysicsWheel.prototype.brake=function(brake){
+	this.braking=brake;
+	return this;
+}
+
+})(GLGE);/*
+Copyright (c) 2011 Martin Ruenz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+*/
+
+/**
+ * @fileOverview Base class for preloaders. Enables the handling of multiple files.
+ * @name glge_filepreloader.js
+ * @author seamonkey@uni-koblenz.de
+ */
+
+
+(function(GLGE){
+
+
+
+
+/**
+* @class FilePreloader class
+* @augments GLGE.Events
+*/
+GLGE.FilePreloader=function(){
+	this.files=[];
+}
+
+GLGE.augment(GLGE.Events,GLGE.FilePreloader);
+
+GLGE.FilePreloader.prototype.loadedBytes=0;
+GLGE.FilePreloader.prototype.totalBytes=0;
+GLGE.FilePreloader.prototype.numLoadedFiles=0;
+GLGE.FilePreloader.prototype.numTotalFiles=0;
+GLGE.FilePreloader.prototype.sizesCount=0;		/** @description Specifies how many file sizes has been collected */
+GLGE.FilePreloader.prototype.progress=0; 		/** @description 0 - 100 */
+GLGE.FilePreloader.prototype.files=null; 		/** @description List of files. file: {	"url":url,"loaded":fileloaded,"size":filesize,"bytesLoaded":loadedSize,
+											"type":'xml'/'image',"callback":called when loaded,"content":content, "preloader":GLGE.FilePreloader} */
+/**
+* Add a file which has to be loaded
+* @param {string} url 		The url of the file.
+* @param {string} type 		Defines the type of the requested file. "image" or "xml"
+* @param {function} [callback] 	Call this function when the file is loaded and pass the loaded content.
+* @public
+*/
+GLGE.FilePreloader.prototype.addFile=function(url, type, callback){
+	//if(this.files.indexOf(url) != -1) return;
+	
+	this.files.push({"url":url,"loaded":false,"size":-1,"bytesLoaded":0,"type":type,"callback":callback,"content":null,"preloader":this});
+	this.numTotalFiles++;
+}
+
+/**
+* Same as addFile. But instead of creating a new file object use an existing one.
+* @param {object} file	The file to add.
+* @public
+*/
+GLGE.FilePreloader.prototype.addFileRef=function(file){
+	//if(this.files.indexOf(url) != -1) return;
+	
+	this.files.push(file);
+	this.numTotalFiles++;
+}
+
+/**
+* This function accumulates the size of all files. When done it triggers loadFiles(). It has to be called for each file.
+* @param {object} file	Current file.
+* @private
+*/
+GLGE.FilePreloader.prototype.accumulateFileSize=function(file)
+{
+	var req = new XMLHttpRequest();
+	req.preloader = this;
+	req.active = true;
+	req.file = file;
+	req.overrideMimeType("text/xml");
+	req.onreadystatechange = function() {
+		if(this.readyState  > 1 && req.active)
+		{
+			this.active = false;
+
+			this.file.size = parseFloat(this.getResponseHeader('Content-length'));
+			this.preloader.totalBytes += this.file.size;
+			
+			if(++this.preloader.sizesCount >= this.preloader.files.length) // are all file sizes collected?
+				this.preloader.loadFiles();
+			
+			this.abort();
+			this.onreadystatechange = null;
+		}
+	};
+	req.open("GET", file.url, true);
+	req.send("");
+}
+
+/**
+* Start loading
+* @public
+*/
+GLGE.FilePreloader.prototype.start=function(){
+	for(i in this.files)
+		this.accumulateFileSize(this.files[i]);
+}
+
+/**
+* Load files. Assumes that the file sizes have been accumulated.
+* @private
+*/
+GLGE.FilePreloader.prototype.loadFiles=function(){
+	
+	for(i in this.files){
+		var file = this.files[i];
+		if(file.type == "image")
+		{
+			// only update the preloader, when the file is completely loaded (no ajax)
+			
+			var image = new Image();
+			file.content = image;
+			var that = this;
+			image.file = file;
+			image.onload = function(){ that.fileLoaded(this.file, this.file.size); } 
+			image.src=file.url;
+		}else{
+			// update the preloader each 0.1 seconds (ajax)
+			
+			var req = new XMLHttpRequest();
+			req.overrideMimeType("text/xml");
+			req.preloader = this;
+			req.file = file;
+			
+			var updateTrigger = setInterval (function ()
+			{
+				if (req.readyState == 3)
+				{
+					// TODO: Check if the file reference is always correct
+					var stepBytes = req.responseText.length - file.bytesLoaded;
+					file.bytesLoaded = req.responseText.length;
+					req.preloader.update(stepBytes);
+				}
+				
+			}, 100);
+			
+			req.onreadystatechange = function() {
+				if(this.readyState  >= 4)
+				{	
+					clearInterval(updateTrigger);
+					this.file.content = this.responseXML;
+					
+					var stepBytes = this.responseText.length - this.file.bytesLoaded;
+					
+					this.preloader.update(stepBytes);
+					this.preloader.fileLoaded(this.file, stepBytes);
+				}
+			};
+			
+			req.open("GET", file.url, true);
+			req.send();
+				
+		}
+	}
+}
+
+/**
+ * This functions updates the progress.
+ * @param {number} stepBytes	Amount of bytes that have been loaded since the last call. 
+ * @private
+ */
+GLGE.FilePreloader.prototype.update=function(stepBytes){
+	this.loadedBytes += stepBytes;
+	this.progress = (100.0 * this.loadedBytes) / this.totalBytes;
+
+	this.fireEvent("progress", {"progress":this.progress, "stepBytes":stepBytes, "loadedBytes":this.loadedBytes, "totalBytes":this.totalBytes, "loadedFiles": this.numLoadedFiles, "totalFiles": this.numTotalFiles}); 
+}
+
+/**
+ * Called when a file has been loaded. This function triggers an event and updates the state.
+ * @param {object} file		The file that has been loaded.
+ * @param {number} stepBytes	Amount of bytes that have been loaded since the last call. 
+ * @private
+ */
+GLGE.FilePreloader.prototype.fileLoaded=function(file, stepBytes){
+
+	this.numLoadedFiles++;
+	
+	// update file
+	file.loaded = true;
+	file.bytesLoaded = file.size;	
+	
+	// update progress
+	if(this.numLoadedFiles >= this.files.length){
+		this.progress = 100;
+		this.fireEvent("downloadComplete", {"file":file,"stepBytes":stepBytes});
+	}else{
+		this.update(stepBytes);
+	}
+	
+	// events
+	this.fireEvent("fileLoaded", {"file":file,"stepBytes":stepBytes});
+	if(file.callback) file.callback(file);
+}
+
+/**
+ * This function returns a list (an array) of all loaded files.
+ * @public
+ */
+GLGE.FilePreloader.prototype.getLoadedFiles=function(){
+	var result = [];
+	for(i in this.files)
+		if(this.files[i].loaded)
+			result.push(this.files[i]);
+	return result;
+}
+
+/**
+ * This function returns information about one file.
+ * @param {string} url	The url of the file.
+ * @public
+ */
+GLGE.FilePreloader.prototype.getFile=function(url){
+	for(i in this.files)
+		if(this.files[i].url==url)
+			return this.files[i];
+	return -1;
+}
+
+
 })(GLGE);
+/*
+Copyright (c) 2011 Martin Ruenz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+*/
+
+/**
+ * @fileOverview
+ * @name glge_documentpreloader.js
+ * @author seamonkey@uni-koblenz.de
+ */
+
+
+(function(GLGE){
+
+
+
+
+/**
+* @class Document preloader class
+* @augments GLGE.Events
+*/
+GLGE.DocumentPreloader=function(doc, args){
+
+	
+	// create image preloader
+	this.imagePreloader = new GLGE.FilePreloader();
+	
+	this.document = doc;
+	
+
+	if(args.XMLQuota)
+		this.XMLQuota = args.XMLQuota;
+	else
+		this.XMLQuota = 0.2; // 20% XML, 80% images
+	
+	this.imageQuota = 1-this.XMLQuota;
+		
+	// Passing the size of all xml files will improve the accuracy of the preloader. Alternative: Pass the number of xml files (approximation)
+	if(args.XMLBytes)
+		this.XMLBytes = args.XMLBytes;
+	else if(args.numXMLFiles)
+		this.numXMLFiles = args.numXMLFiles;
+	else
+		this.numXMLFiles = 3; //TODO necessary?
+}
+
+GLGE.augment(GLGE.Events,GLGE.DocumentPreloader);
+
+GLGE.DocumentPreloader.prototype.progress = 0;
+
+GLGE.DocumentPreloader.prototype.imageQuota = 0;	// size quota of images (Textures) [0..1]
+GLGE.DocumentPreloader.prototype.XMLQuota = 0; 		// size quota XML (Documents) [0..1]
+
+GLGE.DocumentPreloader.prototype.XMLBytes = -1; 	// XML size in bytes (for higher accuracy)
+GLGE.DocumentPreloader.prototype.totalBytes = -1; 	// XML size in bytes (highest accuracy)
+GLGE.DocumentPreloader.prototype.loadedBytes=0;
+
+GLGE.DocumentPreloader.prototype.numXMLFiles = 3;	// default value
+
+GLGE.DocumentPreloader.prototype.state = 0; 		// 0: not yet started, 1: loading XML, 2: loading images, 3: completed
+GLGE.DocumentPreloader.prototype.imagePreloader = null; // GLGE.Peloader
+GLGE.DocumentPreloader.prototype.document = null;	// GLGE.Document
+
+/**
+ * Add an image, which should be loaded by the preloader.
+ * @param {string} url	Url of the image.
+ */
+GLGE.DocumentPreloader.prototype.addImage=function(url){
+	this.imagePreloader.addFile(url, "image");
+}
+
+/**
+ * Start loading all images in all xml files. Assumes that XML-files have finished loading.
+ */
+GLGE.DocumentPreloader.prototype.loadImages=function(){
+
+	this.changeState(2);
+	
+	if(this.progress < this.XMLQuota * 100.0) this.progress = this.XMLQuota * 100.0; // correct progress.
+
+	var that = this;
+	this.imagePreloader.addEventListener("progress", function(args){that.updateProgress.call(that, args);});
+	this.imagePreloader.addEventListener("downloadComplete", function(args){that.finish.call(that, args);});
+	this.imagePreloader.addEventListener("fileLoaded", function(args){that.fireEvent("fileLoaded", args.file);});
+	this.imagePreloader.start();
+}
+
+/**
+ * Update preloader progress.
+ * @param {object} args		Progress information. 
+ *				<br />args.stepBytes describes how many bytes have been loaded since the last update.
+ */
+GLGE.DocumentPreloader.prototype.updateProgress=function(args){
+
+	if(this.state < 2){ // loading xml
+
+		if(this.XMLBytes > 0){ // high accuracy
+			//if(!args.stepBytes) args.stepBytes = 0; 
+			this.loadedBytes += args.stepBytes;
+			this.progress = this.XMLQuota * 100.0 * this.loadedBytes / this.XMLBytes;
+		}
+		else{ // low accuracy
+			this.progress += this.XMLQuota * 100.0 / this.numXMLFiles;
+			if(this.progress > this.XMLQuota * 100) this.progress = this.XMLQuota * 100;
+		}
+	}
+	else{ // loading images
+		this.progress = this.XMLQuota * 100 + this.imageQuota * this.imagePreloader.progress;
+	}
+	this.fireEvent("progress", {"progress":this.progress, "stepBytes":args.stepBytes, "loadedBytes":args.loadedBytes, "totalBytes":args.totalBytes, "loadedFiles": args.loadedFiles, "totalFiles": args.totalFiles});
+}
+
+/**
+ * This function loads a XML-file. Assumes that loading images hasn't yet begun.
+ * @param {string} url	Url of the XML-file.
+ */
+GLGE.DocumentPreloader.prototype.loadXMLFile=function(url){
+
+	this.changeState(1);
+
+	var xmlPreloader = new GLGE.FilePreloader();
+	xmlPreloader.addFile(url, "xml");
+	
+	var that = this;
+	
+	if(this.XMLBytes > 0) xmlPreloader.addEventListener("progress", function(arg){that.updateProgress.call(that, arg);}); // high accuracy
+	else xmlPreloader.addEventListener("downloadComplete", function(arg){that.updateProgress.call(that, arg);}); // low accuracy
+
+	var doc = this.document;
+	xmlPreloader.addEventListener("fileLoaded", function(args){ 
+			args.file.content.getElementById=doc.getElementById; 
+			doc.loaded(args.file.url,args.file.content);
+			that.fireEvent("fileLoaded", args.file);
+		});	
+	
+	xmlPreloader.start();
+}
+
+/**
+ * Sets the state of the document preloader.
+ * @param {number} newState	New state
+ */
+GLGE.DocumentPreloader.prototype.changeState = function(newState) {
+	//if(this.state > newState) GLGE.warning("GLGE.DocumentPreloader.prototype.changeState: The new state is lower than the old.");
+	this.state = newState;
+	this.fireEvent("stateChange", newState);
+}
+
+/**
+ * Called when the document preloader loaded all files.
+ * @param {object} event	Event parameter. Not used at all.
+ */
+GLGE.DocumentPreloader.prototype.finish=function(event){
+	this.changeState(3);
+	this.progress = 100;
+	this.fireEvent("downloadComplete");		
+}
+
+})(GLGE);
+/*
+Copyright (c) 2011 Martin Ruenz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+*/
+
+/**
+ * @fileOverview
+ * @name widget.js
+ * @author seamonkey@uni-koblenz.de
+ */
+
+(function(GLGE){
+if(typeof(GLGE.GUI) == "undefined"){
+	/**
+	* @namespace Holds the functionality of the GUI
+	*/
+	GLGE.GUI = {};
+}
+(function(GUI){
+
+
+
+
+/**
+ * Replace as much gui-objects as possible, with those provided by the library
+ */
+GUI.useLibrary = function(library){
+	if((library == "jQuery") && jQuery) {  
+	
+		// progressbar
+		GUI.Progressbar.prototype.setValue = function(value){$(this.domRoot).progressbar({'value': value });}
+		GUI.Progressbar.prototype.init = function(){ $(this.domRoot).progressbar({value: 0 }); }	
+	}
+	// TODO: Support for more libraries and widgets
+}
+
+
+/**
+ * @class Widget	Widgets are gui objects like progressbars or sliders
+ */
+GUI.Widget = function(){
+	this.domRoot = document.createElement('div');
+	this.domRoot.setAttribute('class','glge-gui-widget-root');
+	
+	this.init();
+}
+GUI.Widget.prototype.domRoot = null;
+
+GUI.Widget.prototype.init = function(){};
+
+
+/**
+ * @class Progressbar	A progressbar widget
+ */
+GUI.Progressbar = function(){
+	// call super constructor
+	this.baseclass.call(this);
+	
+	this.domRoot.className += ' glge-gui-progressbar';
+}
+GUI.Progressbar.prototype.value = 0;
+
+/**
+ * Set the progress value
+ * @param {number} value	progress value
+ */
+GUI.Progressbar.prototype.setValue = function(value){
+	this.value = value;
+}
+
+GLGE.augment(GUI.Widget,GUI.Progressbar);
+
+
+})(GLGE.GUI);})(GLGE);
+/*
+Copyright (c) 2011 Martin Ruenz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+*/
+
+/**
+ * @fileOverview
+ * @name gadget.js
+ * @author seamonkey@uni-koblenz.de
+ */
+
+(function(GLGE){
+if(typeof(GLGE.GUI) == "undefined"){
+	/**
+	* @namespace Holds the functionality of the GUI
+	*/
+	GLGE.GUI = {};
+}
+(function(GUI){
+
+/**
+ * @class Gadget	Gadgets are more complex widgets. One could think of them as windows. They may contain widgets.
+ */
+GUI.Gadget=function(){
+
+	// setup new DOM-Object
+	
+	// root
+	this.domGadgetRoot = document.createElement('div');
+	this.domGadgetRoot.setAttribute('class','glge-gui-gadget-root');
+	this.domGadgetRoot.style.position = 'absolute';
+	this.domGadgetRoot.style.top = '0px';
+
+	// Outer Wrapper
+	this.domGadgetOuterWrapper = document.createElement('div');
+	this.domGadgetOuterWrapper.setAttribute('class','glge-gui-gadget-OuterWrapper');
+	this.domGadgetOuterWrapper.style.position = 'relative';
+	this.domGadgetRoot.appendChild(this.domGadgetOuterWrapper);
+	
+	// Inner Wrapper
+	this.domGadgetInnerWrapper = document.createElement('div');
+	this.domGadgetInnerWrapper.setAttribute('class','glge-gui-gadget-InnerWrapper');
+	this.domGadgetInnerWrapper.style.position = 'relative';	
+	this.domGadgetOuterWrapper.appendChild(this.domGadgetInnerWrapper);
+	
+	// object	
+	this.domGadgetObject = document.createElement('div');
+	this.domGadgetObject.setAttribute('class','glge-gui-gadget');
+	this.domGadgetObject.style.position = 'relative';
+	this.domGadgetInnerWrapper.appendChild(this.domGadgetObject);
+	
+	// footer
+	this.domGadgetFooter = document.createElement('div');
+	this.domGadgetFooter.setAttribute('class','glge-gui-gadget-footer');
+	this.domGadgetFooter.style.clear = 'both';
+	this.domGadgetRoot.appendChild(this.domGadgetFooter);
+	
+	// variables
+
+	this.position = {};
+	this.position.x = 'middle';
+	this.position.y = 'middle';
+	
+	this.updatePosition();
+}
+
+
+GUI.Gadget.prototype.domGadgetRoot = null; // div: attached to dom
+GUI.Gadget.prototype.domGadgetOuterWrapper = null; // div: wrapper for css (vertical align)
+GUI.Gadget.prototype.domGadgetInnerWrapper = null; // div: wrapper for css (horizontal align)
+GUI.Gadget.prototype.domGadgetObject = null; // div: actual gadget
+GUI.Gadget.prototype.domGadgetFooter = null; // div: footer
+GUI.Gadget.prototype.domGadgetParent = null; // parent object, already in dom
+GUI.Gadget.prototype.position = null; // position.x, position.y
+
+/**
+ * This function sets the position of the gadget
+ * @param {object} position	position.x, possible values: "left", "middle", "right", number<br /> 
+ *				position.y, possible values: "top", "middle", "bottom", number
+ */
+GUI.Gadget.prototype.setPosition = function(position){
+	if(position){
+		if(position.x)
+			this.position.x = position.x;
+		if(position.y)
+			this.position.y = position.y;
+	}
+	this.updatePosition();
+}
+
+/**
+ * This function changes css attributes in order to position the gadget
+ * @param {object} position	position.x, possible values: "left", "middle", "right"<br /> 
+ *				position.y, possible values: "top", "middle", "bottom"
+ */
+ // TODO: Possibility to set the position absolute (e.g. x= 15, y=20)
+GUI.Gadget.prototype.updatePosition = function(){
+
+	if(!this.domGadgetParent) return;
+	
+	var parentPosition = '';
+	if(document.defaultView && document.defaultView.getComputedStyle)
+		parentPosition = document.defaultView.getComputedStyle(this.domGadgetParent,null).getPropertyValue('position');
+	else if (this.domGadgetParent.currentStyle)
+		parentPosition = this.domGadgetParent.currentStyle['position'];
+
+	if(parentPosition == 'absolute'){
+	
+		this.domGadgetRoot.style.width = '100%';
+		this.domGadgetRoot.style.height = '100%';
+		this.domGadgetRoot.style.display = 'table';
+		
+		this.domGadgetOuterWrapper.style.display = 'table-cell';
+	
+		if(this.position.y == "top"){
+			this.domGadgetOuterWrapper.style.verticalAlign = 'top';
+		}
+		else if(this.position.y == "middle"){
+			this.domGadgetOuterWrapper.style.verticalAlign = 'middle';
+		}
+		else if(this.position.y == "bottom"){
+			this.domGadgetOuterWrapper.style.verticalAlign = 'bottom';
+		}
+	
+		if(this.position.x == "left"){
+	
+			this.domGadgetInnerWrapper.style.cssFloat = 'left';
+			this.domGadgetInnerWrapper.style.left = '0px';
+		
+			this.domGadgetObject.style.cssFloat = 'left';
+			this.domGadgetObject.style.left = '0px';
+		}
+		else if(this.position.x == "middle"){
+	
+			this.domGadgetInnerWrapper.style.cssFloat = 'right';
+			this.domGadgetInnerWrapper.style.right = '50%';
+		
+			this.domGadgetObject.style.cssFloat = 'left';
+			this.domGadgetObject.style.right = '-50%';
+		}
+		else if(this.position.x == "right"){
+	
+			this.domGadgetInnerWrapper.style.cssFloat = 'right';
+			this.domGadgetInnerWrapper.style.right = '0px';
+		
+			this.domGadgetObject.style.cssFloat = 'right';
+			this.domGadgetObject.style.right = '0px';
+		}
+	}else{ // TODO: css would be much better!
+
+		if(this.position.y == "top"){
+			this.domGadgetRoot.style.top = this.domGadgetParent.offsetTop;
+		}
+		else if(this.position.y == "middle"){
+			this.domGadgetRoot.style.top = this.domGadgetParent.offsetTop + this.domGadgetParent.offsetHeight / 2 - this.domGadgetRoot.offsetHeight / 2;
+		}
+		else if(this.position.y == "bottom"){
+			this.domGadgetRoot.style.top = this.domGadgetParent.offsetTop + this.domGadgetParent.offsetHeight - this.domGadgetRoot.offsetHeight;
+		}
+	
+		if(this.position.x == "left"){
+			this.domGadgetRoot.style.left = this.domGadgetParent.offsetLeft;
+		}
+		else if(this.position.x == "middle"){
+			this.domGadgetRoot.style.left = this.domGadgetParent.offsetLeft + this.domGadgetParent.offsetWidth / 2 - this.domGadgetRoot.offsetWidth / 2;
+		}
+		else if(this.position.x == "right"){
+			this.domGadgetRoot.style.left = this.domGadgetParent.offsetLeft + this.domGadgetParent.offsetWidth - this.domGadgetRoot.offsetWidth;
+		}
+	}
+}
+
+/**
+ * Add Gadget to DOM
+ * @param {object} element	Parent element of the gadget
+ * @param {object} [position]	position.x, possible values: "left", "middle", "right"<br /> 
+ *				position.y, possible values: "top", "middle", "bottom"
+ */
+GUI.Gadget.prototype.addToDOM = function(element, position){
+
+	this.domGadgetParent = element;
+	
+	// add gadget to the document
+	this.domGadgetParent.appendChild(this.domGadgetRoot);	
+	
+	this.setPosition(position);
+}
+
+
+})(GLGE.GUI);})(GLGE);
+/*
+Copyright (c) 2011 Martin Ruenz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+*/
+
+/**
+ * @fileOverview
+ * @name preloader_gadget.js
+ * @author seamonkey@uni-koblenz.de
+ */
+
+(function(GLGE){
+(function(GUI){
+
+/**
+* @class Preloader gadget
+* @augments GLGE.GUI.Gadget
+*/
+GUI.Preloader=function(){
+	// call super constructor
+	this.baseclass.call(this);
+	
+	this.domGadgetObject.innerHTML = "<h1>Loading</h1>";
+	this.domGadgetObject.className += ' glge-gui-gadget-preloader';
+		
+	// progress bar
+	this.progressBar = new GUI.Progressbar();
+	this.domGadgetObject.appendChild(this.progressBar.domRoot);
+	
+	this.domPercentageLabel = document.createElement('div');
+	this.domPercentageLabel.setAttribute('class','glge-gui-gadget-preloader-percentage');
+	this.domPercentageLabel.innerHTML = "<div style='float:left;'>0%</div><div style='float:right;'>100%</div></div>";
+	this.domGadgetObject.appendChild(this.domPercentageLabel);
+	
+	// information box
+	this.domInfoBox = document.createElement('div');
+	this.domInfoBox.setAttribute('class','glge-gui-gadget-preloader-info');
+	this.domInfoBox.setAttribute('style','clear:both;');
+	this.domGadgetObject.appendChild(this.domInfoBox);
+	
+	// state label
+	this.domStateLabel = document.createElement('div');
+	this.domInfoBox.appendChild(this.domStateLabel);
+	
+	// bytes label
+	this.domBytesLabel = document.createElement('div');
+	this.domInfoBox.appendChild(this.domBytesLabel);
+	
+	// files label
+	this.domFilesLabel = document.createElement('div');
+	this.domInfoBox.appendChild(this.domFilesLabel);
+	
+	// last file label
+	this.domLastFileLabel = document.createElement('div');
+	this.domInfoBox.appendChild(this.domLastFileLabel);
+}
+
+GUI.Preloader.prototype.progressBar = null;
+GUI.Preloader.prototype.documentLoader = null;
+GUI.Preloader.prototype.domInfoBox = null;
+GUI.Preloader.prototype.domStateLabel = null;
+GUI.Preloader.prototype.domBytesLabel = null;
+GUI.Preloader.prototype.domFilesLabel = null;
+GUI.Preloader.prototype.domLastFileLabel = null;
+GUI.Preloader.prototype.domPercentageLabel = null;
+
+
+/**
+ * Combine the preloader gadget with an actual preloader
+ * @param {GLGE.DocumentPreloader} docLoader	preloader
+ */ 
+GUI.Preloader.prototype.setDocumentLoader = function(docLoader){
+	
+	this.documentLoader = docLoader;
+	
+	// add listeners
+	var that = this;
+	this.documentLoader.addEventListener("downloadComplete", function(args){that.complete(args);});
+	this.documentLoader.addEventListener("progress", function(args){that.progress(args);});
+	this.documentLoader.addEventListener("stateChange", function(args){that.stateChange(args);});
+	this.documentLoader.addEventListener("fileLoaded", function(args){that.fileLoaded(args);});
+}
+
+/**
+ * Add preloader-gadget to DOM. Creates the content of the DOM-object (domGadgetObject).
+ * @param {object} element			Parent element of the gadget
+ * @param {string|object} [position]		Gadget position
+ */ 
+GUI.Preloader.prototype.addToDOM = function(element, position){
+
+	// update labels
+	this.stateChange(this.documentLoader.state);
+	this.progress({progress:0, loadedBytes:0, loadedFiles:0, totalFiles:0, totalBytes: 0});
+	this.fileLoaded({});
+	
+	this.baseclass.addToDOM.call(this, element, position)
+}
+
+/**
+ * Called on progress
+ */
+GUI.Preloader.prototype.progress = function(args){
+	//this.domProgressBar.progressbar({value: args.progress });
+	this.progressBar.setValue(args.progress);
+	this.domBytesLabel.innerHTML = args.loadedBytes + " of " + args.totalBytes + " Bytes loaded";
+	this.domFilesLabel.innerHTML = args.loadedFiles + " of " + args.totalFiles + " Files loaded";
+}
+
+/**
+ * Called when the preloader finished loading
+ */
+GUI.Preloader.prototype.complete = function(args){
+	//this.domProgressBar.progressbar({value: 100 });
+	this.progressBar.setValue(100);
+	var that = this;
+	setTimeout ( function(){that.domGadgetRoot.parentNode.removeChild(that.domGadgetRoot)}, 300);
+	
+}
+
+/**
+ * Called when the preloader changed it's state
+ */
+GUI.Preloader.prototype.stateChange = function(args){
+	switch(args)
+	{
+		case 0:
+		case 1: this.domStateLabel.innerHTML = "Step 1 of 2: Loading XML"; break;
+		case 2:
+		case 3: this.domStateLabel.innerHTML = "Step 2 of 2: Loading Textures"; break;
+	}
+}
+
+/**
+ * Called when a file has been loaded
+ */
+GUI.Preloader.prototype.fileLoaded = function(args){
+	if(args.url){
+		var path = args.url;
+		
+		// use only 40 letters
+		if(path.length > 40){
+			path = path.slice(-37);
+			path = "..." + path;
+		}
+		this.domLastFileLabel.innerHTML = "Last file loaded: \"" + path + "\"";
+	}
+	else 
+		if(this.domLastFileLabel.innerHTML == "") this.domLastFileLabel.innerHTML = "Last file loaded: <i>none</i>";
+}
+
+GLGE.augment(GUI.Gadget,GUI.Preloader);
+
+})(GLGE.GUI);})(GLGE);

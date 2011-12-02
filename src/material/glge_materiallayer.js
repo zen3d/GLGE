@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_materiallayer.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -47,8 +47,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.Events
 */
 GLGE.MaterialLayer=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.blendMode=GLGE.BL_MIX;
+	GLGE.Assets.registerAsset(this,uid);
 };
 GLGE.augment(GLGE.Animatable,GLGE.MaterialLayer);
 GLGE.augment(GLGE.QuickNotation,GLGE.MaterialLayer);

@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 (function(){
-require.paths.push(".");
+//require.paths.push(".");
 	
 var sys=require('sys');
 var fs=require('fs');
@@ -38,10 +38,10 @@ var TYPE="all"; // Default Type
 
 var FLAGS={
 	all:{
-		core:true, particles:true, md2:true, filter2d:true, collada:true, input:true, wavefront:true, physics:true, devtemplate:true, uglify:true, documents:true
+		core:true, particles:true, md2:true, filter2d:true, collada:true, input:true, wavefront:true, physics:true, devtemplate:true, uglify:true, documents:true, preloader:true, gui:true
 	},
 	scripts:{
-		core:true, particles:true, md2:true, filter2d:true, collada:true,  input:true, physics:true, wavefront:true, uglify:true
+		core:true, particles:true, md2:true, filter2d:true, collada:true,  input:true, physics:true, wavefront:true, uglify:true, gui:true
 	},
 	docs:{
 		core:false, particles:false, md2:false, filter2d:false, collada:false,  input:false, wavefront:false, documents:true
@@ -75,7 +75,7 @@ process.argv.forEach(function (val, index, array) {
 		sys.print('--without-wavefront  : builds without wavefront obj support\n');
 		sys.print('--without-input  : builds without input device support\n');
 		sys.print('--without-physics  : builds without jiglibjs physics support\n');
-		sys.print('--without-ungify  : builds without using the uglify JS compiler\n');
+		sys.print('--without-uglify  : builds without using the uglify JS compiler\n');
 		sys.print('--without-devtemplate  : (DEFAULT) builds a html development template\n');
 		sys.print('--without-documents  : (DEFAULT) builds the docs using the node-jsdoc-toolkit\n');
 		sys.print('\n');
@@ -86,7 +86,7 @@ process.argv.forEach(function (val, index, array) {
 		sys.print('--with-wavefront  : (DEFAULT) builds with wavefront obj support\n');
 		sys.print('--with-input  : (DEFAULT) builds with input device support\n');
 		sys.print('--with-physics  : builds with jiglibjs physics support\n');
-		sys.print('--with-ungify  : (DEFAULT) builds using the uglify JS compiler\n');
+		sys.print('--with-uglify  : (DEFAULT) builds using the uglify JS compiler\n');
 		sys.print('--with-devtemplate  : builds a html development template\n');
 		sys.print('--with-documents  : builds the docs using the node-jsdoc-toolkit\n');
 		isHelp=true;
@@ -123,14 +123,16 @@ if(FLAGS.uglify){
 }
 
 var FILES={
-	core:["src/core/glge.js","src/core/glge_math.js","src/core/glge_animatable.js","src/core/glge_document.js","src/core/glge_event.js","src/core/glge_group.js","src/core/glge_jsonloader.js","src/core/glge_messages.js","src/core/glge_placeable.js","src/core/glge_quicknote.js","src/animation/glge_action.js","src/animation/glge_actionchannel.js","src/animation/glge_animationcurve.js","src/animation/glge_animationvector.js","src/animation/glge_animationpoints.js","src/geometry/glge_mesh.js","src/material/glge_material.js","src/material/glge_materiallayer.js","src/material/glge_multimaterial.js","src/material/glge_texture.js","src/material/glge_texturecamera.js","src/material/glge_texturecanvas.js","src/material/glge_texturecube.js","src/material/glge_texturevideo.js","src/renderable/glge_lod.js","src/renderable/glge_object.js","src/renderable/glge_text.js","src/renders/glge_renderer.js","src/scene/glge_camera.js","src/scene/glge_light.js","src/scene/glge_scene.js"],
+	core:["src/core/glge.js","src/core/glge_math.js","src/core/glge_animatable.js","src/core/glge_document.js","src/core/glge_event.js","src/core/glge_group.js","src/core/glge_jsonloader.js","src/core/glge_messages.js","src/core/glge_placeable.js","src/core/glge_quicknote.js","src/animation/glge_action.js","src/animation/glge_actionchannel.js","src/animation/glge_animationcurve.js","src/animation/glge_animationvector.js","src/animation/glge_animationpoints.js","src/geometry/glge_mesh.js","src/geometry/glge_sphere.js","src/material/glge_material.js","src/material/glge_materiallayer.js","src/material/glge_multimaterial.js","src/material/glge_texture.js","src/material/glge_texturecamera.js","src/material/glge_texturecanvas.js","src/material/glge_texturecube.js","src/material/glge_texturevideo.js","src/renderable/glge_lod.js","src/renderable/glge_object.js","src/renderable/glge_text.js","src/renders/glge_renderer.js","src/scene/glge_camera.js","src/scene/glge_light.js","src/scene/glge_scene.js"],
 	particles:["src/extra/glge_particles.js"],
 	collada:["src/extra/glge_collada.js"],
 	filter2d:["src/extra/glge_filter2d.js","src/extra/filters/glge_filter_glow.js","src/extra/filters/glge_filter_ao.js"],
 	md2:["src/extra/glge_md2.js"],
 	input:["src/extra/glge_input.js"],
 	wavefront:["src/extra/glge_wavefront.js"],
-	physics:["src/physics/glge_physicsext.js","src/physics/glge_physicsabstract.js","src/physics/glge_physicsbox.js","src/physics/glge_physicsmesh.js","src/physics/glge_physicsplane.js","src/physics/glge_physicssphere.js","src/physics/glge_physicsconstraintpoint.js"]
+	physics:["src/physics/glge_physicsext.js","src/physics/glge_physicsabstract.js","src/physics/glge_physicsbox.js","src/physics/glge_physicsmesh.js","src/physics/glge_physicsplane.js","src/physics/glge_physicssphere.js","src/physics/glge_physicsconstraintpoint.js","src/physics/glge_physicscar.js"],
+	preloader:["src/preloader/glge_documentpreloader.js", "src/preloader/glge_filepreloader.js"],
+	gui:["src/gui/gui.js", "src/gui/gadget.js", "src/gui/preloader_gadget.js"]
 };
 
 var DEPENDS={
@@ -179,8 +181,14 @@ var DEPENDS={
 	"src/physics/glge_physicsplane.js":["src/core/glge.js","src/core/glge_math.js","src/scene/glge_scene.js","src/physics/glge_physicsabstract.js"],
 	"src/physics/glge_physicssphere.js":["src/core/glge.js","src/core/glge_math.js","src/scene/glge_scene.js","src/physics/glge_physicsabstract.js"],
 	"src/physics/glge_physicsconstraintpoint.js":["src/core/glge.js","src/core/glge_math.js","src/scene/glge_scene.js","src/physics/glge_physicsabstract.js"],
-	"src/extra/glge_md2.js":["src/renderable/glge_object.js"]
-	
+	"src/physics/glge_physicscar.js":["src/core/glge.js","src/core/glge_math.js","src/scene/glge_scene.js","src/physics/glge_physicsabstract.js"],
+	"src/extra/glge_md2.js":["src/renderable/glge_object.js"],
+	"src/preloader/glge_documentpreloader.js":["src/preloader/glge_filepreloader.js"],
+	"src/preloader/glge_filepreloader.js":["src/core/glge.js", "src/core/glge_event.js"], 
+	"src/gui/preloader_gadget.js":["src/gui/gadget.js"],
+	"src/gui/gadget.js":["src/gui/gui.js"],
+	"src/gui/gui.js":["src/core/glge.js"],
+	"src/geometry/glge_sphere.js":["src/geometry/glge_mesh.js"]
 };
 
 sys.print("Generating file list\n");
@@ -256,9 +264,18 @@ if(FLAGS.documents){
 		cmd.stdout.on('data', function (data) {
 			sys.print(data);
 		});
+
+		// check exit-code
 		cmd.on('exit', function (code) {
 			if(code==0) sys.print("Build Complete!\n");
-				else sys.print(">> ERROR: Failed to generate documents\n");
+				else sys.print("Build Complete! Exit with code: "+code+"\n");
+		});
+
+		// check for errors
+		cmd.stderr.on('data', function (error) {
+			if (/^execvp\(\)/.test(error.asciiSlice(0,error.length))) {
+				console.log('Failed to start child process.');
+			}
 		});
 	}else{
 		sys.print("Build Complete!\n");

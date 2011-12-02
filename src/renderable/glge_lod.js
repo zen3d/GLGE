@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_lod.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -48,8 +48,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.Events
 */
 GLGE.ObjectLod=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
     this.setMaterial(GLGE.DEFAULT_MATERIAL);
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.ObjectLod);
 GLGE.augment(GLGE.JSONLoader,GLGE.ObjectLod);
@@ -73,13 +73,19 @@ GLGE.ObjectLod.prototype.setMesh=function(mesh){
 	//remove event listener from current material
 	if(this.mesh){
 		this.mesh.removeEventListener("shaderupdate",this.meshupdated);
+		this.mesh.removeEventListener("boundupdate",this.boundupdated);
 	}
 	var multiMaterial=this;
 	this.meshupdated=function(event){
 		multiMaterial.GLShaderProgram=null;
 	};
+	
+	this.boundupdated=function(event){
+		multiMaterial.fireEvent("boundupdate",{});
+	};
 	//set event listener for new material
 	mesh.addEventListener("shaderupdate",this.meshupdated);
+	mesh.addEventListener("boundupdate",this.boundupdated);
 	
 	this.GLShaderProgram=null;
 	this.mesh=mesh;

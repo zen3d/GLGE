@@ -1006,6 +1006,14 @@ GLGE.makePerspective=function(fovy, aspect, near, far){
 	return GLGE.makeFrustum(xmin, xmax, ymin, ymax, near, far);
 };
 
+GLGE.makePerspectiveX=function(fovx, aspect, near, far){
+	var xmax = near * Math.tan(fovx * 0.00872664625972);
+	var xmin = -xmax;
+	var ymin = xmin / aspect;
+	var ymax = xmax / aspect;
+	return GLGE.makeFrustum(xmin, xmax, ymin, ymax, near, far);
+};
+
 GLGE.matrix2Scale=function(m){
 	var m1=m[0];
 	var m2=m[1];
@@ -1276,9 +1284,9 @@ GLGE.getDirLightProjection=function(cvp,light,projectedDistance,distance){
 	var pointTransform=GLGE.mulMat4(light,GLGE.inverseMat4(cvp));
 	var min=[0,0,0];
 	var max=[0,0,0];
-	for(x=0;x<2;x++){
-		for(y=0;y<2;y++){
-			for(z=0;z<2;z++){
+	for(var x=0;x<2;x++){
+		for(var y=0;y<2;y++){
+			for(var z=0;z<2;z++){
 				var vec=GLGE.mulMat4Vec4(pointTransform,[x*2-1,y*2-1,z*projectedDistance,1]);
 				vec[0]=vec[0]/vec[3];vec[1]=vec[1]/vec[3];vec[2]=vec[2]/vec[3];
 				min[0]=min[0] > vec[0] ? vec[0] : min[0];

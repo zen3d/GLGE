@@ -42,9 +42,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 GLGE.FILTER_POST=0;
 GLGE.FILTER_SKY=1;
 
-GLGE.Filter2d=function(){
-	
+GLGE.Filter2d=function(uid){
+	GLGE.Assets.registerAsset(this,uid);
 }
+GLGE.augment(GLGE.QuickNotation,GLGE.Filter2d);
 GLGE.Filter2d.prototype.renderDepth=false;
 GLGE.Filter2d.prototype.renderNormal=false;
 GLGE.Filter2d.prototype.renderEmit=false;
@@ -284,7 +285,7 @@ GLGE.Filter2d.prototype.GLSetUniforms=function(gl,pass){
 		GLGE.setUniformMatrix(gl,"Matrix4fv",GLGE.getUniformLocation(gl,this.passes[pass].program, "invViewProj"),false,glmat);
 	}
 
-	for(key in this.uniforms){
+	for(var key in this.uniforms){
 		var uniform=this.uniforms[key];
 		if(uniform.type=="Matrix4fv"){
 			GLGE.setUniformMatrix(gl,"Matrix4fv",GLGE.getUniformLocation(gl,this.passes[pass].program, key),false,uniform.value);

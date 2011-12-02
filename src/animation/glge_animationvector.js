@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_animationvector.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -43,8 +43,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.AnimationVector=function(uid){
-    GLGE.Assets.registerAsset(this,uid);
     this.curves={};
+    GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.AnimationVector);
 GLGE.augment(GLGE.JSONLoader,GLGE.AnimationVector);

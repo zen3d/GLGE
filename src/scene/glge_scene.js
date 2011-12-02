@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_scene.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -72,7 +72,6 @@ GLGE.FOG_SKYQUADRATIC=5;
 * @augments GLGE.JSONLoader
 */
 GLGE.Scene=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
     GLGE.Group.call(this);
 	this.children=[];
 	this.camera=new GLGE.Camera();
@@ -80,6 +79,7 @@ GLGE.Scene=function(uid){
 	this.ambientColor={r:0,g:0,b:0};
 	this.fogColor={r:0.5,g:0.5,b:0.5};
 	this.passes=[];
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Group,GLGE.Scene);
 GLGE.Scene.prototype.camera=null;
@@ -299,6 +299,7 @@ GLGE.Scene.prototype.zSort=function(gl,objects){
 			var center=[matrix[3],matrix[7],matrix[11]];
 		}
 		objects[i].zdepth=center[0]*cameraMatrix[8]+center[1]*cameraMatrix[9]+center[2]*cameraMatrix[10]+cameraMatrix[11];
+		if(objects[i].object.zDepth) {objects[i].zdepth=objects[i].object.zDepth;}
 	}
 	objects.sort(GLGE.Scene.sortFunc);
 	return objects;
@@ -634,25 +635,25 @@ GLGE.Scene.prototype.renderPass=function(gl,renderObjects,offsetx,offsety,width,
 	var transObjects=[];
 	gl.disable(gl.BLEND);
 	for(var i=0; i<renderObjects.length;i++){
-		if(!renderObjects[i].object.zTrans && renderObjects[i].object!=self) renderObjects[i].object.GLRender(gl,type,0,renderObjects[i].multiMaterial);
+		if((!renderObjects[i].object.zTrans ||  type!=GLGE.RENDER_DEFAULT) && renderObjects[i].object!=self) renderObjects[i].object.GLRender(gl,type,0,renderObjects[i].multiMaterial);
 			else if(renderObjects[i].object!=self) transObjects.push(renderObjects[i]);
 	}
 
 	gl.enable(gl.BLEND);
 	transObjects=this.zSort(gl,transObjects);
 	for(var i=0; i<transObjects.length;i++){
-	if(transObjects[i].object.blending){
-		if(transObjects[i].object.blending.length=4){
-			gl.blendFuncSeparate(gl[transObjects[i].object.blending[0]],gl[transObjects[i].object.blending[1]],gl[transObjects[i].object.blending[2]],gl[transObjects[i].object.blending[3]]);
-		}else{
-			gl.blendFunc(gl[transObjects[i].object.blending[0]],gl[transObjects[i].object.blending[1]]);
+		if(transObjects[i].object.blending){
+			if(transObjects[i].object.blending.length=4){
+				gl.blendFuncSeparate(gl[transObjects[i].object.blending[0]],gl[transObjects[i].object.blending[1]],gl[transObjects[i].object.blending[2]],gl[transObjects[i].object.blending[3]]);
+			}else{
+				gl.blendFunc(gl[transObjects[i].object.blending[0]],gl[transObjects[i].object.blending[1]]);
+			}
 		}
-	}
-	if(transObjects[i].object.depthTest===false){
-		gl.disable(this.gl.DEPTH_TEST);   
-	}else{
-		gl.enable(this.gl.DEPTH_TEST);   
-	}
+		if(transObjects[i].object.depthTest===false){
+			gl.disable(this.gl.DEPTH_TEST);   
+		}else{
+			gl.enable(this.gl.DEPTH_TEST);   
+		}
 		if(renderObjects[i]!=self) transObjects[i].object.GLRender(gl, type,0,transObjects[i].multiMaterial);
 	}
 
@@ -754,6 +755,10 @@ GLGE.Scene.prototype.ray=function(origin,direction){
 		gl.disable(gl.BLEND);
 		gl.scene=this;
 		var objects=this.getObjects();
+		/*if(this.culling){
+			var cvp=this.camera.getViewProjection();
+			objects=this.objectsInViewFrustum(objects,cvp);
+		}*/
 		for(var i=0; i<objects.length;i++){
 			if(objects[i].pickable) objects[i].GLRender(gl,GLGE.RENDER_PICK,i+1);
 		}
@@ -762,12 +767,11 @@ GLGE.Scene.prototype.ray=function(origin,direction){
 		var data = new Uint8Array(8 * 1 * 4);
 		gl.readPixels(0, 0, 8, 1, gl.RGBA,gl.UNSIGNED_BYTE, data);
 		
-		
 		var norm=[data[4]/255,data[5]/255,data[6]/255];
 		var normalsize=Math.sqrt(norm[0]*norm[0]+norm[1]*norm[1]+norm[2]*norm[2])*0.5;
 		norm=[norm[0]/normalsize-1,norm[1]/normalsize-1,norm[2]/normalsize-1];
 		var obj=objects[data[0]+data[1]*256+data[2]*65536-1];
-		
+
 		var dist=(data[10]/255+0.00390625*data[9]/255+0.0000152587890625*data[8]/255)*this.camera.far;
 		var tex=[];
 		tex[0]=(data[14]/255+0.00390625*data[13]/255+0.0000152587890625*data[12]/255);

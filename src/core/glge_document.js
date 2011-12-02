@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_document.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -51,6 +51,7 @@ GLGE.Document.prototype.documents=null;
 GLGE.Document.prototype.rootURL=null;
 GLGE.Document.prototype.loadCount=0;
 GLGE.Document.prototype.version=0;
+GLGE.Document.prototype.preloader=null;
 /**
 * This is just a fix for a bug in webkit
 * @param {string} id the id name to get
@@ -96,7 +97,7 @@ GLGE.Document.prototype.getAbsolutePath=function(path,relativeto){
 			initpath=[];
 		}
 		var locpath=path.split("/");
-		for(i=0;i<locpath.length;i++){
+		for(var i=0;i<locpath.length;i++){
 			if(locpath[i]=="..") initpath.pop();
 				else if(locpath[i]!="") initpath.push(locpath[i]);
 		}
@@ -106,8 +107,13 @@ GLGE.Document.prototype.getAbsolutePath=function(path,relativeto){
 /**
 * Loads the root document
 * @param {string} url URL of the resource to load
+* @param {object} preload Decides if a preloader is used. true: default preloader, object: specialized preloader
 */
-GLGE.Document.prototype.load=function(url){
+GLGE.Document.prototype.load=function(url, preload){
+	
+	if(preload)
+		this.usePreloader(preload);
+	
 	this.documents=[];
 	this.rootURL=url;
 	this.loadDocument(url,null);
@@ -120,24 +126,32 @@ GLGE.Document.prototype.load=function(url){
 GLGE.Document.prototype.loadDocument=function(url,relativeto){
 	this.loadCount++;
 	url=this.getAbsolutePath(url,relativeto);
-	var req = new XMLHttpRequest();
-	if(req) {
-		req.docurl=url;
-		req.docObj=this;
-		req.overrideMimeType("text/xml");
-		req.onreadystatechange = function() {
-			if(this.readyState  == 4)
-			{
-				if(this.status  == 200 || this.status==0){
-					this.responseXML.getElementById=this.docObj.getElementById;
-					this.docObj.loaded(this.docurl,this.responseXML);
-				}else{ 
-					GLGE.error("Error loading Document: "+this.docurl+" status "+this.status);
+	
+	if(this.preloader)
+	{
+		this.preloader.loadXMLFile(url);
+	}
+	else
+	{
+		var req = new XMLHttpRequest();
+		if(req) {
+			req.docurl=url;
+			req.docObj=this;
+			req.overrideMimeType("text/xml");
+			req.onreadystatechange = function() {
+				if(this.readyState  == 4)
+				{
+					if(this.status  == 200 || this.status==0){
+						this.responseXML.getElementById=this.docObj.getElementById;
+						this.docObj.loaded(this.docurl,this.responseXML);
+					}else{ 
+						GLGE.error("Error loading Document: "+this.docurl+" status "+this.status);
+					}
 				}
-			}
-		};
-		req.open("GET", url, true);
-		req.send("");
+			};
+			req.open("GET", url, true);
+			req.send("");
+		}
 	}	
 }
 /**
@@ -148,7 +162,7 @@ GLGE.Document.prototype.loadDocument=function(url,relativeto){
 */
 GLGE.Document.prototype.loaded=function(url,responceXML){
 	this.loadCount--;
-	this.documents[url]={xml:responceXML};
+	this.documents[url]={'xml':responceXML, 'url':url};
 	var root=responceXML.getElementsByTagName("glge");
 	if(root[0] && root[0].hasAttribute("version")) this.version=parseFloat(root[0].getAttribute("version"));
 	var imports=responceXML.getElementsByTagName("import");
@@ -177,6 +191,41 @@ GLGE.Document.prototype.finishedLoading=function(url){
 * @event
 */
 GLGE.Document.prototype["onLoad"]=function(){};
+/**
+* Use a preloader
+* @param {object} [object]	This object contains optional parameters. Example1: {XMLQuota: 0.30, XMLBytes: 852605}, Example2: {XMLQuota: 0.13, numXMLFiles: 1}, Example3: true
+*/
+GLGE.Document.prototype.usePreloader = function(args){
+	this.preloader = new GLGE.DocumentPreloader(this, args);
+	var that = this;
+	this.addLoadListener(function(url){that.preloadImages.call(that);});	
+}
+/**
+* Start preloading images. This function should be called when the document (xml) is loaded.
+* @private
+*/
+GLGE.Document.prototype.preloadImages = function(){
+	var imageArrays = []; // 2 dimensional
+	var docUrls = [];
+	
+	// create an array of all images
+	for(var doc in this.documents){
+		if(this.documents[doc].xml){
+			imageArrays.push(this.documents[doc].xml.getElementsByTagName("texture"));
+			docUrls.push(this.documents[doc].url);
+		}
+	}
+	
+	// add images to the preloader
+	for(var a in imageArrays){
+		for(var i=0; i<imageArrays[a].length; i++){
+			var src = imageArrays[a][i].getAttribute("src");
+			if(src)
+				this.preloader.addImage(this.getAbsolutePath(src, docUrls[a]));
+		}
+	}
+	this.preloader.loadImages();
+}
 /**
 * Converts and attribute name into a class name
 * @param {string} name attribute name to convert
@@ -249,7 +298,7 @@ GLGE.Document.prototype.addChildren=function(Obj){
 GLGE.Document.prototype.getElement=function(ele,noerrors){
 	var docele,doc;
 	if(typeof(ele)=="string"){
-		for(doc in this.documents){
+		for(var doc in this.documents){
 			if(this.documents[doc].xml){
 				docele=this.documents[doc].xml.getElementById(ele);
 				if(docele){
@@ -353,7 +402,7 @@ GLGE.Document.prototype.parseArray=function(node){
 		child=child.nextSibling;
 		if(currentArray[0]=="") currentArray.unshift();
 		if(child) prev=currentArray.pop();
-		for(i=0;i<currentArray.length;i++) output.push(currentArray[i]);
+		for(var i=0;i<currentArray.length;i++) output.push(currentArray[i]);
 	}
 	return output;
 }
@@ -386,6 +435,9 @@ GLGE.Document.prototype.getMesh=function(ele){
 					break;
 				case "faces":
 					ele.object.setFaces(this.parseArray(child));
+					break;
+				case "color":
+					ele.object.setVertexColors(this.parseArray(child));
 					break;
 				case "joint_names":
 					var names=this.parseArray(child);

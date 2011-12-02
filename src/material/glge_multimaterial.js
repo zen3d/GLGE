@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_multimaterial.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -48,18 +48,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.Events
 */
 GLGE.MultiMaterial=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
     var multiMaterial=this;
     this.downloadComplete=function(){
         if(multiMaterial.isComplete()) multiMaterial.fireEvent("downloadComplete");
     }
+    this.boundUpdate=function(){
+        multiMaterial.fireEvent("boundupdate");
+    }
 	this.lods=[new GLGE.ObjectLod];
     this.lods[0].addEventListener("downloadComplete",this.downloadComplete);
+    this.lods[0].addEventListener("boundupdate",this.boundUpdate);
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.MultiMaterial);
 GLGE.augment(GLGE.JSONLoader,GLGE.MultiMaterial);
 GLGE.augment(GLGE.Events,GLGE.MultiMaterial);
 GLGE.MultiMaterial.prototype.className="MultiMaterial";
+GLGE.MultiMaterial.prototype.oneLod=true;
 
 
 /**
@@ -129,6 +134,10 @@ GLGE.MultiMaterial.prototype.getLOD=function(pixelsize){
 * @param {GLGE.ObjectLod} lod the lod to add
 */
 GLGE.MultiMaterial.prototype.addObjectLod=function(lod){
+	if(this.oneLod){
+		this.oneLod=false;
+		this.lods=[];
+	}
 	this.lods.push(lod);
     lod.addEventListener("downloadComplete",this.downloadComplete);
 	return this;

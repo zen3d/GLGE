@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_animationcurve.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -45,10 +45,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.AnimationCurve=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.keyFrames=[];
 	this.solutions={};
 	this.caches={};
+	GLGE.Assets.registerAsset(this,uid);
 };
 GLGE.augment(GLGE.QuickNotation,GLGE.AnimationCurve);
 GLGE.augment(GLGE.JSONLoader,GLGE.AnimationCurve);

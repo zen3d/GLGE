@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_texturecanvas.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -46,8 +46,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.TextureCanvas=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.canvas=document.createElement("canvas");
+	//temp canvas to force chrome to update FIX ME when bug sorted!
+	this.t=document.createElement("canvas");
+	this.t.width=1;
+	this.t.height=1;
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.QuickNotation,GLGE.TextureCanvas);
 GLGE.augment(GLGE.JSONLoader,GLGE.TextureCanvas);
@@ -155,11 +159,11 @@ GLGE.TextureCanvas.prototype.update=function(){
 */
 GLGE.TextureCanvas.prototype.updateCanvas=function(gl){
 	var canvas = this.canvas;
-	
 	gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
-	//TODO: fix this when minefield is upto spec
-	try{gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);}
-	catch(e){gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas,null);}
+	
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.t); //force chrome to update remove when chrome bug fixed
+	
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.generateMipmap(gl.TEXTURE_2D);

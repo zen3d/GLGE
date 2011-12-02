@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @fileOverview
- * @name glge_quicknote.js
+ * @name glge_object.js
  * @author me@paulbrunt.co.uk
  */
 
@@ -61,13 +61,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * @augments GLGE.JSONLoader
 */
 GLGE.Object=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
 	this.multimaterials=[];
 	this.renderCaches=[];
     var that=this;
     this.downloadComplete=function(){
         if(that.isComplete()) that.fireEvent("downloadComplete");
     }
+	GLGE.Assets.registerAsset(this,uid);
 }
 GLGE.augment(GLGE.Placeable,GLGE.Object);
 GLGE.augment(GLGE.Animatable,GLGE.Object);
@@ -90,6 +90,7 @@ GLGE.Object.prototype.pointSize=1;
 GLGE.Object.prototype.lineWidth=1;
 GLGE.Object.prototype.cull=true;
 GLGE.Object.prototype.culled=true;
+GLGE.Object.prototype.visible=true;
 GLGE.Object.prototype.depthTest=true;
 GLGE.Object.prototype.meshFrame1=0;
 GLGE.Object.prototype.meshFrame2=0;
@@ -153,6 +154,24 @@ pkfragStr.push("}");
 pkfragStr.push("}\n");
 GLGE.Object.prototype.pkfragStr=pkfragStr.join("");
 
+
+/**
+* Sets the object visibility
+* @param {boolean} visable flag to indicate the objects visibility
+*/
+GLGE.Object.prototype.setVisible=function(visible){
+	this.visible=visible;
+	return this;
+}
+
+/**
+* Gets the object visibility
+* @returns  flag to indicate the objects visibility
+*/
+GLGE.Object.prototype.getVisible=function(){
+	return this.visible;
+}
+
 /**
 * Sets the first mesh frame to use when using an animated mesh
 * @param {boolean} frame the inital frame
@@ -168,13 +187,21 @@ GLGE.Object.prototype.setMeshFrame1=function(frame){
 GLGE.Object.prototype.setMeshFrame2=function(frame){
 	this.meshFrame2=frame;
 	return this;
-}/**
+}
+/**
 * blending between frames
 * @param {boolean} frame value 0-1 morth between frame1 and frame2
 */
 GLGE.Object.prototype.setMeshBlendFactor=function(factor){
 	this.meshBlendFactor=factor;
 	return this;
+}
+/**
+* Gets blending between frames
+* @returns blender factor
+*/
+GLGE.Object.prototype.getMeshBlendFactor=function(){
+	return this.meshBlendFactor;
 }
 
 /**
@@ -338,7 +365,6 @@ GLGE.Object.prototype.getBoundingVolume=function(local){
 	if(!local) local=0;
 	if(!this.boundingVolume) this.boundingVolume=[];
 	if(!this.boundmatrix) this.boundmatrix=[];
-	
 	var matrix=this.getModelMatrix();
 	if(matrix!=this.boundmatrix[local] || !this.boundingVolume[local]){
 		var multimaterials=this.multimaterials;
@@ -447,8 +473,10 @@ GLGE.Object.prototype.setMesh=function(mesh,idx){
 	if(typeof mesh=="string")  mesh=GLGE.Assets.get(mesh);
 	if(!idx) idx=0;
 	if(!this.multimaterials[idx]){
-        this.multimaterials[idx]=new GLGE.MultiMaterial();
-        this.multimaterials[idx].addEventListener("downloadComplete",this.downloadComplete);
+		var object=this;
+		this.multimaterials[idx]=new GLGE.MultiMaterial();
+		this.multimaterials[idx].addEventListener("downloadComplete",this.downloadComplete);
+		this.multimaterials[idx].addEventListener("boundupdate",function(){object.boundingVolume=null});
 	}
 	this.multimaterials[idx].setMesh(mesh);
 	this.boundingVolume=null;
@@ -495,7 +523,9 @@ GLGE.Object.prototype.updateProgram=function(){
 GLGE.Object.prototype.addMultiMaterial=function(multimaterial){
 	if(typeof multimaterial=="string")  multimaterial=GLGE.Assets.get(multimaterial);
 	this.multimaterials.push(multimaterial);
-    multimaterial.addEventListener("downloadComplete",this.downloadComplete);
+	multimaterial.addEventListener("downloadComplete",this.downloadComplete);
+	var object=this;
+	multimaterial.addEventListener("boundupdate",function(){object.boundingVolume=null});
 	this.boundingVolume=null;
 	return this;
 }
@@ -695,9 +725,6 @@ GLGE.Object.prototype.GLGenerateShader=function(gl){
 
 	
 	
-	vertexStr.push("gl_Position = projection * pos;\n");
-	vertexStr.push("gl_PointSize="+(this.pointSize.toFixed(5))+";\n");
-	
 	vertexStr.push("eyevec = -pos.xyz;\n");
 	
 	if(tangent) vertexStr.push("t = normalize(tang);");
@@ -716,6 +743,8 @@ GLGE.Object.prototype.GLGenerateShader=function(gl){
 			vertexStr.push("lightdist"+i+" = length(lightpos"+i+".xyz-pos.xyz);\n");
 	}
 	if(this.material) vertexStr.push(this.material.getLayerCoords(this.shaderVertexInjection));
+	vertexStr.push("gl_Position = projection * pos;\n");
+	vertexStr.push("gl_PointSize="+(this.pointSize.toFixed(5))+";\n");
 	vertexStr.push("}\n");
 	
 	vertexStr=vertexStr.join("");
@@ -736,6 +765,15 @@ GLGE.Object.prototype.GLGenerateShader=function(gl){
 	this.GLShaderProgramNormal=GLGE.getGLProgram(gl,this.GLVertexShaderNormal,this.GLFragmentShaderNormal);
 	this.GLShaderProgramShadow=GLGE.getGLProgram(gl,this.GLVertexShaderShadow,this.GLFragmentShaderShadow);
 	this.GLShaderProgram=GLGE.getGLProgram(gl,this.GLVertexShaderShadow,this.GLFragmentShader);
+	
+	//if we failed then check for fallback option
+	if (!gl.getProgramParameter(this.GLShaderProgram, gl.LINK_STATUS)) {
+		if(this.material.fallback){
+			this.material=this.material.fallback;
+			this.multimaterial.material=this.material;
+			this.GLGenerateShader(gl);
+		}
+	}
 
 }
 /**
@@ -747,6 +785,7 @@ GLGE.Object.prototype.createShaders=function(multimaterial){
 	if(this.gl){
 		this.mesh=multimaterial.mesh;
 		this.material=multimaterial.material;
+		this.multimaterial=multimaterial;
 		this.GLGenerateShader(this.gl);
 		multimaterial.GLShaderProgramPick=this.GLShaderProgramPick;
 		multimaterial.GLShaderProgramShadow=this.GLShaderProgramShadow;
@@ -793,7 +832,7 @@ GLGE.Object.prototype.GLUniforms=function(gl,renderType,pickindex){
     gl.lineWidth(this.lineWidth);
     
     //set custom uinforms
-    for(key in this.uniforms){
+    for(var key in this.uniforms){
     	var uniform=this.uniforms[key];
     	if(uniform.type=="Matrix4fv"){
     		GLGE.setUniformMatrix(gl,"Matrix4fv",GLGE.getUniformLocation(gl,program, key),false,uniform.value);
@@ -844,7 +883,7 @@ GLGE.Object.prototype.GLUniforms=function(gl,renderType,pickindex){
 			
 	
 	var cameraMatrix=camera.getViewMatrix();
-	var modelMatrix=this.getModelMatrix();
+	var objMatrix=modelMatrix=this.getModelMatrix();
 	
 	if(!pc.mvMatrix) pc.mvMatrix={cameraMatrix:null,modelMatrix:null};
 	var mvCache=pc.mvMatrix;
@@ -998,7 +1037,7 @@ GLGE.Object.prototype.GLUniforms=function(gl,renderType,pickindex){
 			}
 			var invBind=this.mesh.invBind[i];
 			if(jointCache[i].modelMatrix!=modelMatrix || jointCache[i].invBind!=invBind){
-				var jointmat=GLGE.mulMat4(modelMatrix,invBind);
+				var jointmat=GLGE.mulMat4(modelMatrix,invBind); 
 				//jointmat=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
 				if(!pgl.joints[i]){
 					pgl.jointsT[i]=new Float32Array(GLGE.transposeMat4(jointmat));
@@ -1123,6 +1162,9 @@ GLGE.Object.prototype.GLRender=function(gl,renderType,pickindex,multiMaterial,di
 				case GLGE.DRAW_LINESTRIPS:
 					drawType=gl.LINE_STRIP;
 					break;
+				case GLGE.DRAW_TRIANGLESTRIP:
+					drawType=gl.TRIANGLE_STRIP;
+					break;
 				default:
 					drawType=gl.TRIANGLES;
 					break;
@@ -1169,8 +1211,12 @@ GLGE.Object.prototype.GLRender=function(gl,renderType,pickindex,multiMaterial,di
 				case GLGE.Mesh.WINDING_ORDER_UNKNOWN:
 					gl.disable(gl.CULL_FACE);
 					break;
+				case GLGE.Mesh.WINDING_ORDER_CLOCKWISE:
+					gl.enable(gl.CULL_FACE);    
+					break;
 				case GLGE.Mesh.WINDING_ORDER_COUNTER:
 					gl.cullFace(gl.FRONT);
+					gl.enable(gl.CULL_FACE);    
 				default:
 					break;
 			}
@@ -1180,6 +1226,7 @@ GLGE.Object.prototype.GLRender=function(gl,renderType,pickindex,multiMaterial,di
 			}else{
 				gl.drawArrays(drawType, 0, this.mesh.positions.length/3);
 			}
+			
 			switch (this.mesh.windingOrder) {
 				case GLGE.Mesh.WINDING_ORDER_UNKNOWN:
 					if (gl.scene.renderer.cullFaces)

@@ -56,8 +56,12 @@ var parseFloat2=function(val){
 * @param {object} obj2 Destination Object
 */
 GLGE.augment=function(obj1,obj2){
-	for(proto in obj1.prototype){
-		obj2.prototype[proto]=obj1.prototype[proto];
+	obj2.prototype.baseclass = obj1;
+	for(var proto in obj1.prototype){
+		if(!obj2.prototype[proto]) // do not overwrite functions of the derived objects
+			obj2.prototype[proto]=obj1.prototype[proto];
+		else // Attach those to the baseclass instead. Use 'call(this)' to call baseclass methods
+			obj2.prototype.baseclass[proto]=obj1.prototype[proto];
 	}
 }
 
@@ -128,6 +132,14 @@ GLGE.DRAW_LINESTRIPS=4;
 * @description Enumeration for point rendering
 */
 GLGE.DRAW_POINTS=5;
+
+/**
+* @constant 
+* @description Enumeration for point rendering
+*/
+GLGE.DRAW_TRIANGLESTRIP=6;
+
+
 
 
 /**
@@ -295,6 +307,12 @@ GLGE.error=function(error){
     //do not use a modal dialog to indicate this users can override GLGE.error if they desire
 };
 
+GLGE.warning=function(warning){
+    if (console&&console.log)
+        console.log("GLGE warning: "+warning);
+    //do not use a modal dialog to indicate this users can override GLGE.warning if they desire
+};
+
 /**
 * @namespace Holds the global asset store
 */
@@ -323,6 +341,10 @@ GLGE.Assets.createUUID=function(){
 * @function registers a new asset
 */
 GLGE.Assets.registerAsset=function(obj,uid){
+	if(typeof uid=="object"){
+		if(obj._) obj._(uid);
+		uid=uid.uid;
+	}
 	if(!uid){
 		uid=GLGE.Assets.createUUID();
 	};
