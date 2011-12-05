@@ -378,7 +378,7 @@ GLGE.Document.prototype.getTexture=function(ele){
 	if(!ele.object){
 		var rel=this.getAbsolutePath(this.rootURL,null);
 		ele.object=new GLGE[this.classString(ele.tagName)];
-		ele.object.setSrc(this.getAbsolutePath(ele.getAttribute("src"),rel));
+		ele.object.setSrc(this.getAbsolutePath(ele.getAttribute("src"),rel), ele.getAttribute("crossOrigin"));
 		ele.removeAttribute("src");
 		this.setProperties(ele);
 	}

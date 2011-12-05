@@ -75,11 +75,15 @@ GLGE.Texture.prototype.getSrc=function(){
 /**
 * Sets the textures image location
 * @param {string} url the texture image url
+* @param {boolean} crossOrigin sets the image to request anonymous cross origin headers
 */
-GLGE.Texture.prototype.setSrc=function(url){
+GLGE.Texture.prototype.setSrc=function(url, crossOrigin){
 	this.url=url;
 	this.state=0;
 	this.image=new Image();
+	if ( crossOrigin == true || crossOrigin == "true"){
+		this.image.crossOrigin = '';
+	}
 	var texture=this;
 	this.image.onload = function(){
 		texture.state=1;

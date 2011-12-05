@@ -53,8 +53,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	* @param {number} y2 The upper Y bound of the height map in world coords
 	* @param {number} z1 The lower Z bound of the height map in world coords
 	* @param {number} z2 The upper Z bound of the height map in world coords
+	* @param {boolean} crossOrigin Request anonymous cross origin headers for the imagefile.
 	*/
-	GLGE.HeightMap = function(imageURL, imageWidth, imageHeight, x1, x2, y1, y2, z1, z2){
+	GLGE.HeightMap = function(imageURL, imageWidth, imageHeight, x1, x2, y1, y2, z1, z2, crossOrigin){
 		this.canvas = document.createElement("canvas");
 		this.context = this.canvas.getContext('2d');
 		this.canvas.width = imageWidth;
@@ -67,6 +68,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		this.maxZ = z2;
 
 		var image = new Image();
+		if ( crossOrigin == true || crossOrigin == "true" ){
+			image.crossOrigin = "";
+		}
 		image.heightmap = this;
 		image.onload = function(e){
 			this.heightmap.context.drawImage(this, 0, 0);
