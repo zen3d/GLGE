@@ -2038,7 +2038,7 @@ GLGE.Events.prototype.fireEvent=function(event,data){
 	if(this.events && this.events[event]){
 		var events=this.events[event];
 		for(var i=0;i<events.length;i++){
-			events[i].call(this,data);
+			if(events[i] && events[i].call) events[i].call(this,data);
 		}
 	}
 }
@@ -10280,7 +10280,10 @@ GLGE.Object.prototype.GLRender=function(gl,renderType,pickindex,multiMaterial,di
 			this.GLUniforms(gl,renderType,pickindex);
 			switch (this.mesh.windingOrder) {
 				case GLGE.Mesh.WINDING_ORDER_UNKNOWN:
-					gl.disable(gl.CULL_FACE);
+					if (gl.scene.renderer.cullFaces)
+						gl.enable(gl.CULL_FACE); 
+					else
+						gl.disable(gl.CULL_FACE); 
 					break;
 				case GLGE.Mesh.WINDING_ORDER_CLOCKWISE:
 					gl.enable(gl.CULL_FACE);    
@@ -10368,6 +10371,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 GLGE.Text=function(uid){
 	this.canvas=document.createElement("canvas");
+	this.scaleCanvas=document.createElement("canvas");
 	this.color={r:1.0,g:1.0,b:1.0};
 	GLGE.Assets.registerAsset(this,uid);
 }
@@ -10625,16 +10629,26 @@ GLGE.Text.prototype.updateCanvas=function(gl){
 	this.aspect=canvas.width/canvas.height;
 	ctx.fillText(this.text, 0, 0);   
 	
+	var height=Math.pow(2,Math.ceil(Math.log(canvas.height))/(Math.log(2)));
+	var width=Math.pow(2,Math.ceil(Math.log(canvas.width))/(Math.log(2)));
+
+	this.scaleCanvas.height=height;
+	this.scaleCanvas.width=width;
+
+	this.scaleContext=this.scaleCanvas.getContext("2d");
+	this.scaleContext.clearRect(0,0,width,height);
+	this.scaleContext.drawImage(canvas, 0, 0, width, height);
+	
 	gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
 	//TODO: fix this when minefield is upto spec
-	try{gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);}
-	catch(e){gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas,null);}
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	try{gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.scaleCanvas);}
+	catch(e){gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.scaleCanvas,null);}
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	
 	gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
@@ -10984,13 +10998,13 @@ GLGE.Renderer.prototype.GLClear=function(){
 	var gl=this.gl;
 	var clearType=this.clearType;
 	var clear=0;
-	if(clearType & GLGE.C_COLOR ==  GLGE.C_COLOR){
+	if((clearType & GLGE.C_COLOR) ==  GLGE.C_COLOR){
 		clear=clear | gl.COLOR_BUFFER_BIT;
 	}
-	if(clearType & GLGE.C_DEPTH == GLGE.C_DEPTH){
+	if((clearType & GLGE.C_DEPTH) == GLGE.C_DEPTH){
 		clear=clear | gl.DEPTH_BUFFER_BIT;
 	}
-	if(clearType & GLGE.C_STENCIL == GLGE.C_STENCIL){
+	if((clearType & GLGE.C_STENCIL) == GLGE.C_STENCIL){
 		clear=clear | gl.STENCIL_BUFFER_BIT;
 	}
 	gl.clear(clear);
@@ -11009,9 +11023,9 @@ GLGE.Renderer.prototype.getScene=function(){
 GLGE.Renderer.prototype.setScene=function(scene){
 	scene.renderer=this;
 	this.scene=scene;
-	scene.GLInit(this.gl);
-	this.render();
-	scene.camera.matrix=null; //reset camera matrix to force cache update
+	if(!scene.gl) scene.GLInit(this.gl);
+	//this.render();
+	scene.camera.updateMatrix(); //reset camera matrix to force cache update
 	return this;
 };
 /**
@@ -14498,6 +14512,7 @@ GLGE.FilterGlow.prototype.renderEmit=true;
 GLGE.FilterGlow.prototype.blur=1.2;
 GLGE.FilterGlow.prototype.intensity=3;
 GLGE.FilterGlow.prototype.fxaacutoff=2;
+GLGE.FilterGlow.prototype.fxaastartintensity=0;
 
 GLGE.FilterGlow.prototype.setEmitBufferWidth=function(value){
 	GLGE.Filter2d.prototype.setEmitBufferWidth.call(this,value);
@@ -14526,6 +14541,11 @@ GLGE.FilterGlow.prototype.setFXAA=function(value){
 }
 GLGE.FilterGlow.prototype.setFXAACutoff=function(value){
 	this.fxaacutoff=value;
+	this.createPasses();
+	return this;
+}
+GLGE.FilterGlow.prototype.setFXAAStartIntensity=function(value){
+	this.fxaastartintensity=value;
 	this.createPasses();
 	return this;
 }
@@ -14631,6 +14651,7 @@ GLGE.FilterGlow.prototype.createPasses=function(){
 		pass3.push("	if((lumaB < lumaMin) || (lumaB > lumaMax)) gl_FragColor = vec4(rgbA,1.0);");
 		pass3.push("	    else gl_FragColor = vec4(rgbB,1.0);");
 		pass3.push("	if(length(rgbM)>"+this.fxaacutoff.toFixed(2)+") gl_FragColor = vec4(rgbM,1.0);");
+		pass3.push("	if(length(rgbM)<"+this.fxaastartintensity.toFixed(2)+") gl_FragColor = vec4(rgbM,1.0);");
 		pass3.push("}");
 		this.addPass(pass3.join("\n"));
 	}

@@ -232,13 +232,13 @@ GLGE.Renderer.prototype.GLClear=function(){
 	var gl=this.gl;
 	var clearType=this.clearType;
 	var clear=0;
-	if(clearType & GLGE.C_COLOR ==  GLGE.C_COLOR){
+	if((clearType & GLGE.C_COLOR) ==  GLGE.C_COLOR){
 		clear=clear | gl.COLOR_BUFFER_BIT;
 	}
-	if(clearType & GLGE.C_DEPTH == GLGE.C_DEPTH){
+	if((clearType & GLGE.C_DEPTH) == GLGE.C_DEPTH){
 		clear=clear | gl.DEPTH_BUFFER_BIT;
 	}
-	if(clearType & GLGE.C_STENCIL == GLGE.C_STENCIL){
+	if((clearType & GLGE.C_STENCIL) == GLGE.C_STENCIL){
 		clear=clear | gl.STENCIL_BUFFER_BIT;
 	}
 	gl.clear(clear);
@@ -257,9 +257,9 @@ GLGE.Renderer.prototype.getScene=function(){
 GLGE.Renderer.prototype.setScene=function(scene){
 	scene.renderer=this;
 	this.scene=scene;
-	scene.GLInit(this.gl);
-	this.render();
-	scene.camera.matrix=null; //reset camera matrix to force cache update
+	if(!scene.gl) scene.GLInit(this.gl);
+	//this.render();
+	scene.camera.updateMatrix(); //reset camera matrix to force cache update
 	return this;
 };
 /**
