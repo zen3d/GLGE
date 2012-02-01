@@ -11372,15 +11372,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-
 /**
 * @class Creates a new light source to be added to a scene
 * @property {Boolean} diffuse Dose this light source effect diffuse shading
 * @property {Boolean} specular Dose this light source effect specular shading
 * @augments GLGE.Animatable
 * @augments GLGE.Placeable
-
-* * @augments GLGE.QuickNotation
+* @augments GLGE.QuickNotation
 * @augments GLGE.JSONLoader
 */
 GLGE.Light=function(uid){
@@ -11804,7 +11802,8 @@ GLGE.Light.prototype.createSpotBuffer=function(gl){
 }
 
 
-})(GLGE);/*
+})(GLGE);
+/*
 GLGE WebGL Graphics Engine
 Copyright (c) 2010, Paul Brunt
 All rights reserved.
@@ -13576,6 +13575,7 @@ GLGE.MD2.prototype.MD2Animations={};
 GLGE.MD2.prototype.MD2StartFrame=0;
 GLGE.MD2.prototype.MD2EndFrame=0;
 GLGE.MD2.prototype.MD2Loop=true;
+GLGE.MD2.prototype.MD2AnimFinished=false;
 
 GLGE.MD2.prototype.headerNames=[
 "ident",
@@ -13710,6 +13710,7 @@ GLGE.MD2.prototype.setMD2FrameRate=function(framerate){
 */
 GLGE.MD2.prototype.setMD2Animation=function(anim,loop){
 	this.MD2Anim=anim;
+	this.MD2AnimFinished=false;
 	if(loop!=undefined) this.MD2Loop=loop;
 	this.MD2Started=+new Date;
 	if(this.MD2Animations[this.url] && this.MD2Animations[this.url][anim]){
@@ -13744,7 +13745,8 @@ GLGE.MD2.prototype.setMD2Frame=function(frame){
 	}else{
 		frame=Math.min(totalframes,frame);
 		frame2=Math.min(totalframes,Math.floor(frame)+1);
-		if(frame==totalframes){
+		if(frame==totalframes && !this.MD2AnimFinished){
+			this.MD2AnimFinished=true;
 			this.fireEvent("md2AnimFinished",{});
 		}
 	}
@@ -15885,6 +15887,8 @@ GLGE.Collada.prototype.getMaterial=function(id,bvi){
 			switch(child.tagName){
 				case "float":
 //TODO				returnMaterial.setTransparency(parseFloat(child.firstChild.nodeValue))
+				returnMaterial.setAlpha(parseFloat(child.firstChild.nodeValue));
+				returnMaterial.trans=true;
 					break;
 				case "param":
 //TODO                    	returnMaterial.setTransparency(parseFloat(this.getFloat(common,child.getAttribute("ref"))));
