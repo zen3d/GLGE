@@ -31,117 +31,119 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * @name glge_sphere.js
  * @author me@paulbrunt.co.uk
  */
- 
-(function(GLGE){
-/**
-* @class Used to generate a basic sphere mesh
-* @augments GLGE.Mesh
-*/
-GLGE.Sphere=function(uid){
-	this.vertical=10;
-	this.horizontal=10;
-	this.radius=1;
-	this.dirtySphere=false;
-	GLGE.Mesh.apply(this,arguments);
-	this.generateMeshData();
-}
-GLGE.augment(GLGE.Mesh,GLGE.Sphere);
-/**
-* @private
-*/
-GLGE.Sphere.prototype.generateMeshData=function(){
-	var vertical=this.vertical;
-	var horizontal=this.horizontal;
-	var radius=this.radius;
-	var t1,y,r1,i,j,x,y,t2;
-	var verts=[];
-	var normals=[];
-	var faces=[];
-	for(i=0;i<=vertical;i++){
-		t1=i/vertical*Math.PI;
-		y=Math.cos(t1)*radius;
-		r1=Math.sin(t1)*radius;
-		for(j=0;j<horizontal;j++){
-			t2=j/horizontal*2*Math.PI;
-			x=Math.sin(t2)*r1;
-			z=Math.cos(t2)*r1;
-			verts.push(x,y,z);
-			var n=GLGE.toUnitVec3([x,y,z]);
-			normals.push(n[0],n[1],n[2]);
-		}
-		if(i>0){
-			for(j=0;j<horizontal;j++){
-				var v1=i*horizontal+j;
-				var v2=(i-1)*horizontal+j;
-				var v3=i*horizontal+(j+1)%horizontal;
-				var v4=(i-1)*horizontal+(j+1)%horizontal;
-				faces.push(v1,v3,v4,v1,v4,v2)
-			}
-		}
-	}
-	this.setPositions(verts);
-	this.setNormals(normals);
-	this.setFaces(faces);
-	this.dirtySphere=false;
-}
 
-/**
-* Sets the sphere radius
-* @param {number} radius the sphere radius
-*/
-GLGE.Sphere.prototype.setRadius=function(radius){
-	this.radius=radius;
-	this.dirtySphere=true;
-	return this;
-}
-/**
-* Gets the sphere radius
-* @returns the radius
-*/
-GLGE.Sphere.prototype.getRadius=function(){
-	return this.radius;
-}
+(function (GLGE) {
+    /**
+     * @class Used to generate a basic sphere mesh
+     * @augments GLGE.Mesh
+     */
+    GLGE.Sphere = function (uid) {
+        this.vertical = 10;
+        this.horizontal = 10;
+        this.radius = 1;
+        this.dirtySphere = false;
+        GLGE.Mesh.apply(this, arguments);
+        this.generateMeshData();
+    };
+    GLGE.augment(GLGE.Mesh, GLGE.Sphere);
+    /**
+     * @private
+     */
+    GLGE.Sphere.prototype.generateMeshData = function () {
+        var vertical = this.vertical;
+        var horizontal = this.horizontal;
+        var radius = this.radius;
+        var t1, y, r1, i, j, x, y, t2;
+        var verts = [];
+        var normals = [];
+        var faces = [];
+        for (i = 0; i <= vertical; i++) {
+            t1 = i / vertical * Math.PI;
+            y = Math.cos(t1) * radius;
+            r1 = Math.sin(t1) * radius;
+            for (j = 0; j < horizontal; j++) {
+                t2 = j / horizontal * 2 * Math.PI;
+                x = Math.sin(t2) * r1;
+                z = Math.cos(t2) * r1;
+                verts.push(x, y, z);
+                var n = GLGE.toUnitVec3([x, y, z]);
+                normals.push(n[0], n[1], n[2]);
+            }
+            if (i > 0) {
+                for (j = 0; j < horizontal; j++) {
+                    var v1 = i * horizontal + j;
+                    var v2 = (i - 1) * horizontal + j;
+                    var v3 = i * horizontal + (j + 1) % horizontal;
+                    var v4 = (i - 1) * horizontal + (j + 1) % horizontal;
+                    faces.push(v1, v3, v4, v1, v4, v2);
+                }
+            }
+        }
+        this.setPositions(verts);
+        this.setNormals(normals);
+        this.setFaces(faces);
+        this.dirtySphere = false;
+    };
 
-/**
-* Sets the sphere vertical divisions
-* @param {number} radius the sphere radius
-*/
-GLGE.Sphere.prototype.setVertical=function(vertical){
-	this.vertical=vertical;
-	this.dirtySphere=true;
-	return this;
-}
-/**
-* Gets the sphere vertical divisions
-* @returns the radius
-*/
-GLGE.Sphere.prototype.getRadius=function(){
-	return this.vertical;
-}
+    /**
+     * Sets the sphere radius
+     * @param {number} radius the sphere radius
+     */
+    GLGE.Sphere.prototype.setRadius = function (radius) {
+        this.radius = radius;
+        this.dirtySphere = true;
+        return this;
+    };
+    /**
+     * Gets the sphere radius
+     * @returns the radius
+     */
+    GLGE.Sphere.prototype.getRadius = function () {
+        return this.radius;
+    };
 
-/**
-* Sets the sphere horizontal divisions
-* @param {number} radius the sphere radius
-*/
-GLGE.Sphere.prototype.setHorizontal=function(horizontal){
-	this.horizontal=horizontal;
-	this.dirtySphere=true;
-	return this;
-}
-/**
-* Gets the sphere horizontal divisions
-* @returns the radius
-*/
-GLGE.Sphere.prototype.getRadius=function(){
-	return this.horizontal;
-}
+    /**
+     * Sets the sphere vertical divisions
+     * @param {number} radius the sphere radius
+     */
+    GLGE.Sphere.prototype.setVertical = function (vertical) {
+        this.vertical = vertical;
+        this.dirtySphere = true;
+        return this;
+    };
+    /**
+     * Gets the sphere vertical divisions
+     * @returns the radius
+     */
+    GLGE.Sphere.prototype.getRadius = function () {
+        return this.vertical;
+    };
 
-/**
-* @private
-*/
-GLGE.Sphere.prototype.GLAttributes=function(){
-	if(this.dirtySphere) this.generateMeshData();
-	GLGE.Mesh.prototype.GLAttributes.apply(this,arguments);
-};
+    /**
+     * Sets the sphere horizontal divisions
+     * @param {number} radius the sphere radius
+     */
+    GLGE.Sphere.prototype.setHorizontal = function (horizontal) {
+        this.horizontal = horizontal;
+        this.dirtySphere = true;
+        return this;
+    };
+    /**
+     * Gets the sphere horizontal divisions
+     * @returns the radius
+     */
+    GLGE.Sphere.prototype.getRadius = function () {
+        return this.horizontal;
+    };
+
+    /**
+     * @private
+     */
+    GLGE.Sphere.prototype.GLAttributes = function () {
+        if (this.dirtySphere) {
+            this.generateMeshData();
+        }
+        GLGE.Mesh.prototype.GLAttributes.apply(this, arguments);
+    };
 
 })(GLGE);

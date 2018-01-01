@@ -33,47 +33,54 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
-
-
-
-/**
-* @class A events class
-**/
-GLGE.Events=function(){
-}
-/**
-* Fires an event
-* @param {string} event The name of the event to fire
-* @param {object} data the events data
-**/
-GLGE.Events.prototype.fireEvent=function(event,data){
-	if(this.events && this.events[event]){
-		var events=this.events[event];
-		for(var i=0;i<events.length;i++){
-			if(events[i] && events[i].call) events[i].call(this,data);
-		}
-	}
-}
-/**
-* Adds an event listener
-* @param {string} event The name of the event to listen for
-* @param {function} fn the event callback
-**/
-GLGE.Events.prototype.addEventListener=function(event,fn){
-	if(!this.events) this.events={};
-	if(!this.events[event]) this.events[event]=[];
-	this.events[event].push(fn);
-}
-/**
-* Removes an event listener
-* @param {function} fn the event callback to remove
-**/
-GLGE.Events.prototype.removeEventListener=function(event,fn){
-    if(!this.events[event]) return;
-	var idx=this.events[event].indexOf(fn);
-	if(idx!=-1) this.events[event].splice(idx,1);
-}
+    /**
+     * @class A events class
+     **/
+    GLGE.Events = function () {
+    };
+    /**
+     * Fires an event
+     * @param {string} event The name of the event to fire
+     * @param {object} data the events data
+     **/
+    GLGE.Events.prototype.fireEvent = function (event, data) {
+        if (this.events && this.events[event]) {
+            var events = this.events[event];
+            for (var i = 0; i < events.length; i++) {
+                if (events[i] && events[i].call) {
+                    events[i].call(this, data);
+                }
+            }
+        }
+    };
+    /**
+     * Adds an event listener
+     * @param {string} event The name of the event to listen for
+     * @param {function} fn the event callback
+     **/
+    GLGE.Events.prototype.addEventListener = function (event, fn) {
+        if (!this.events) {
+            this.events = {};
+        }
+        if (!this.events[event]) {
+            this.events[event] = [];
+        }
+        this.events[event].push(fn);
+    };
+    /**
+     * Removes an event listener
+     * @param {function} fn the event callback to remove
+     **/
+    GLGE.Events.prototype.removeEventListener = function (event, fn) {
+        if (!this.events[event]) {
+            return;
+        }
+        var idx = this.events[event].indexOf(fn);
+        if (idx != -1) {
+            this.events[event].splice(idx, 1);
+        }
+    };
 
 })(GLGE);

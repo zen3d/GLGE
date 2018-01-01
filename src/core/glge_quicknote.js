@@ -33,34 +33,35 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
-	
-/**
-* @class class to implelemnt quick notation
-*/
-GLGE.QuickNotation=function(){
-}
-/**
-* Call to set properties and add children to an object
-* @example myObject._({LocX:10,LocY:20},child1,child2,.....);
-*/
-GLGE.QuickNotation.prototype._=function(){
-	var argument;
-	for(var i=0; i<arguments.length;i++){
-		argument=arguments[i];
-		if(typeof argument=="object"){
-			if(argument.className && this["add"+argument.className]){
-				this["add"+argument.className](argument);
-			}else{
-				for(var key in argument){
-					if(this["set"+key]){
-						this["set"+key](argument[key]);
-					}
-				}
-			}
-		}
-	}
-	return this;
-}
+(function (GLGE) {
+
+    /**
+     * @class class to implelemnt quick notation
+     */
+    GLGE.QuickNotation = function () {
+    };
+    /**
+     * Call to set properties and add children to an object
+     * @example myObject._({LocX:10,LocY:20},child1,child2,.....);
+     */
+    GLGE.QuickNotation.prototype._ = function () {
+        var argument;
+        for (var i = 0; i < arguments.length; i++) {
+            argument = arguments[i];
+            if (typeof argument == "object") {
+                if (argument.className && this["add" + argument.className]) {
+                    this["add" + argument.className](argument);
+                }
+                else {
+                    for (var key in argument) {
+                        if (this["set" + key]) {
+                            this["set" + key](argument[key]);
+                        }
+                    }
+                }
+            }
+        }
+        return this;
+    };
 
 })(GLGE);

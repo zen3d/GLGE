@@ -20,12 +20,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE. 
 \
 LZMA SDK is placed in the public domain by Igor Pavlov. 
-*/ 
+*/
 
-var LZMA={};
-(function(LZMA){
+var LZMA = {};
+(function (LZMA) {
 
-var script=" \
+    var script = " \
  \
 var LZMA = LZMA || {}; \
 (function(LZMA){ \
@@ -563,21 +563,22 @@ self.onmessage = function(e) {\
 	self.postMessage(outStream.data);\
 }";
 
-LZMA.decompress=function(data,callback){
-	if(window.WebKitBlobBuilder){
-		var bb = new window.WebKitBlobBuilder();
-	}else{
-		var bb = new window.MozBlobBuilder();
-	}
-	bb.append(script);
+    LZMA.decompress = function (data, callback) {
+        if (window.WebKitBlobBuilder) {
+            var bb = new window.WebKitBlobBuilder();
+        }
+        else {
+            var bb = new window.MozBlobBuilder();
+        }
+        bb.append(script);
 
-	var URL= window.URL || window.webkitURL || window.mozURL;
-	var blobURL = URL.createObjectURL(bb.getBlob());
+        var URL = window.URL || window.webkitURL || window.mozURL;
+        var blobURL = URL.createObjectURL(bb.getBlob());
 
-	var worker = new Worker(blobURL);
-	worker.onmessage = function(e) {
-		callback(e.data);
-	};
-	worker.postMessage(data); 
-}
+        var worker = new Worker(blobURL);
+        worker.onmessage = function (e) {
+            callback(e.data);
+        };
+        worker.postMessage(data);
+    };
 })(LZMA);

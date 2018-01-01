@@ -33,35 +33,33 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
+    GLGE.ObjectLod.prototype.binaryPack = function (pack) {
+        pack.addResource(this.material);
+        pack.addResource(this.mesh);
 
-GLGE.ObjectLod.prototype.binaryPack=function(pack){
-	pack.addResource(this.material);
-	pack.addResource(this.mesh);
-	
-	var size=6+2*40;
-	
-	var buffer=new GLGE.BinaryBuffer(size);
-	buffer.write("Uint16",3); //number of fields
-	buffer.write("Float32",this.pixelSize); //pixelsize
-	buffer.write("String",this.material.uid,40); //material uid
-	buffer.write("String",this.mesh.uid,40); //mesh uid
+        var size = 6 + 2 * 40;
 
-	return buffer;
-}
+        var buffer = new GLGE.BinaryBuffer(size);
+        buffer.write("Uint16", 3); //number of fields
+        buffer.write("Float32", this.pixelSize); //pixelsize
+        buffer.write("String", this.material.uid, 40); //material uid
+        buffer.write("String", this.mesh.uid, 40); //mesh uid
 
-GLGE.ObjectLod.binaryUnPack=function(pack,data){
-	var buffer=pack.buffer;
-	var objectLod=new GLGE.ObjectLod(data.uid);
-	var num_fields=buffer.read("Uint16");
-	objectLod.setPixelSize(buffer.read("Float32"));
-	objectLod.setMaterial(pack.getResource(buffer.read("String",40)));
-	//buffer.read("String",40);
-	//objectLod.setMaterial(new GLGE.Material);
-	objectLod.setMesh(pack.getResource(buffer.read("String",40)));
-	return objectLod;
-}
+        return buffer;
+    };
 
+    GLGE.ObjectLod.binaryUnPack = function (pack, data) {
+        var buffer = pack.buffer;
+        var objectLod = new GLGE.ObjectLod(data.uid);
+        var num_fields = buffer.read("Uint16");
+        objectLod.setPixelSize(buffer.read("Float32"));
+        objectLod.setMaterial(pack.getResource(buffer.read("String", 40)));
+        //buffer.read("String",40);
+        //objectLod.setMaterial(new GLGE.Material);
+        objectLod.setMesh(pack.getResource(buffer.read("String", 40)));
+        return objectLod;
+    };
 
-})(GLGE)
+})(GLGE);

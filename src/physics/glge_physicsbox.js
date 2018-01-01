@@ -32,82 +32,84 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * @author me@paulbrunt.co.uk
  */
 
-(function(GLGE){
+(function (GLGE) {
 
-/**
-* @class A wrapping class for jiglib spheres
-* @augments GLGE.PhysicsAbstract
-*/
-GLGE.PhysicsBox=function(uid){
-	this.jigLibObj=new jigLib.JBox(this,this.width,this.height,this.depth);
-	this.jigLibObj.GLGE=this;
-	this.jigLibObj.addEventListener(jigLib.JCollisionEvent.COLLISION, function(event){this.GLGE.fireEvent("collision",{obj:event.collisionBody.GLGE,impulse:event.collisionImpulse})});
-	GLGE.PhysicsAbstract.call(this,uid);
-}
-GLGE.augment(GLGE.PhysicsAbstract,GLGE.PhysicsBox);
+    /**
+     * @class A wrapping class for jiglib spheres
+     * @augments GLGE.PhysicsAbstract
+     */
+    GLGE.PhysicsBox = function (uid) {
+        this.jigLibObj = new jigLib.JBox(this, this.width, this.height, this.depth);
+        this.jigLibObj.GLGE = this;
+        this.jigLibObj.addEventListener(jigLib.JCollisionEvent.COLLISION, function (event) {
+            this.GLGE.fireEvent("collision", {obj: event.collisionBody.GLGE, impulse: event.collisionImpulse});
+        });
+        GLGE.PhysicsAbstract.call(this, uid);
+    };
+    GLGE.augment(GLGE.PhysicsAbstract, GLGE.PhysicsBox);
 
-GLGE.PhysicsBox.prototype.width=1;
-GLGE.PhysicsBox.prototype.height=1;
-GLGE.PhysicsBox.prototype.depth=1;
+    GLGE.PhysicsBox.prototype.width = 1;
+    GLGE.PhysicsBox.prototype.height = 1;
+    GLGE.PhysicsBox.prototype.depth = 1;
 
-GLGE.PhysicsBox.prototype.className="PhysicsBox";
-/**
-* Sets the width of the box
-* @param {number} value The width to set
-*/
-GLGE.PhysicsBox.prototype.setWidth=function(value){
-	this.width=value;
-	var sides=this.jigLibObj.get_sideLengths();
-	sides[0]=+value
-	this.jigLibObj.set_sideLengths(sides);
-	return this;
-}
-/**
-* Sets the height of the box
-* @param {number} value The height to set
-*/
-GLGE.PhysicsBox.prototype.setHeight=function(value){
-	this.height=value;
-	var sides=this.jigLibObj.get_sideLengths();
-	sides[1]=+value
-	this.jigLibObj.set_sideLengths(sides);
-	return this;
-}
+    GLGE.PhysicsBox.prototype.className = "PhysicsBox";
+    /**
+     * Sets the width of the box
+     * @param {number} value The width to set
+     */
+    GLGE.PhysicsBox.prototype.setWidth = function (value) {
+        this.width = value;
+        var sides = this.jigLibObj.get_sideLengths();
+        sides[0] = +value;
+        this.jigLibObj.set_sideLengths(sides);
+        return this;
+    };
+    /**
+     * Sets the height of the box
+     * @param {number} value The height to set
+     */
+    GLGE.PhysicsBox.prototype.setHeight = function (value) {
+        this.height = value;
+        var sides = this.jigLibObj.get_sideLengths();
+        sides[1] = +value;
+        this.jigLibObj.set_sideLengths(sides);
+        return this;
+    };
 
-/**
-* Sets the height of the box
-* @param {number} value The depth to set
-*/
-GLGE.PhysicsBox.prototype.setDepth=function(value){
-	this.depth=value;
-	var sides=this.jigLibObj.get_sideLengths();
-	sides[2]=+value
-	this.jigLibObj.set_sideLengths(sides);
-	return this;
-}
+    /**
+     * Sets the height of the box
+     * @param {number} value The depth to set
+     */
+    GLGE.PhysicsBox.prototype.setDepth = function (value) {
+        this.depth = value;
+        var sides = this.jigLibObj.get_sideLengths();
+        sides[2] = +value;
+        this.jigLibObj.set_sideLengths(sides);
+        return this;
+    };
 
-/**
-* Gets the width of the box
-* @returns {number} The width to set
-*/
-GLGE.PhysicsBox.prototype.getWidth=function(){
-	return this.jigLibObj.get_sideLengths()[0];
-}
+    /**
+     * Gets the width of the box
+     * @returns {number} The width to set
+     */
+    GLGE.PhysicsBox.prototype.getWidth = function () {
+        return this.jigLibObj.get_sideLengths()[0];
+    };
 
-/**
-* Gets the height of the box
-* @returns {number} The height to set
-*/
-GLGE.PhysicsBox.prototype.getHeight=function(){
-	return this.jigLibObj.get_sideLengths()[1];
-}
+    /**
+     * Gets the height of the box
+     * @returns {number} The height to set
+     */
+    GLGE.PhysicsBox.prototype.getHeight = function () {
+        return this.jigLibObj.get_sideLengths()[1];
+    };
 
-/**
-* Gets the depth of the box
-* @returns {number} The depth to set
-*/
-GLGE.PhysicsBox.prototype.getDepth=function(){
-	return this.jigLibObj.get_sideLengths()[2];
-}
+    /**
+     * Gets the depth of the box
+     * @returns {number} The depth to set
+     */
+    GLGE.PhysicsBox.prototype.getDepth = function () {
+        return this.jigLibObj.get_sideLengths()[2];
+    };
 
 })(GLGE);

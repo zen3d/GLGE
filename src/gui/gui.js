@@ -26,66 +26,66 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * @author seamonkey@uni-koblenz.de
  */
 
-(function(GLGE){
-if(typeof(GLGE.GUI) == "undefined"){
-	/**
-	* @namespace Holds the functionality of the GUI
-	*/
-	GLGE.GUI = {};
-}
-(function(GUI){
+(function (GLGE) {
+    if (typeof(GLGE.GUI) == "undefined") {
+        /**
+         * @namespace Holds the functionality of the GUI
+         */
+        GLGE.GUI = {};
+    }
+    (function (GUI) {
 
+        /**
+         * Replace as much gui-objects as possible, with those provided by the library
+         */
+        GUI.useLibrary = function (library) {
+            if ((library == "jQuery") && jQuery) {
 
+                // progressbar
+                GUI.Progressbar.prototype.setValue = function (value) {
+                    $(this.domRoot).progressbar({'value': value});
+                };
+                GUI.Progressbar.prototype.init = function () {
+                    $(this.domRoot).progressbar({value: 0});
+                };
+            }
+            // TODO: Support for more libraries and widgets
+        };
 
+        /**
+         * @class Widget    Widgets are gui objects like progressbars or sliders
+         */
+        GUI.Widget = function () {
+            this.domRoot = document.createElement('div');
+            this.domRoot.setAttribute('class', 'glge-gui-widget-root');
 
-/**
- * Replace as much gui-objects as possible, with those provided by the library
- */
-GUI.useLibrary = function(library){
-	if((library == "jQuery") && jQuery) {  
-	
-		// progressbar
-		GUI.Progressbar.prototype.setValue = function(value){$(this.domRoot).progressbar({'value': value });}
-		GUI.Progressbar.prototype.init = function(){ $(this.domRoot).progressbar({value: 0 }); }	
-	}
-	// TODO: Support for more libraries and widgets
-}
+            this.init();
+        };
+        GUI.Widget.prototype.domRoot = null;
 
+        GUI.Widget.prototype.init = function () {
+        };
 
-/**
- * @class Widget	Widgets are gui objects like progressbars or sliders
- */
-GUI.Widget = function(){
-	this.domRoot = document.createElement('div');
-	this.domRoot.setAttribute('class','glge-gui-widget-root');
-	
-	this.init();
-}
-GUI.Widget.prototype.domRoot = null;
+        /**
+         * @class Progressbar    A progressbar widget
+         */
+        GUI.Progressbar = function () {
+            // call super constructor
+            this.baseclass.call(this);
 
-GUI.Widget.prototype.init = function(){};
+            this.domRoot.className += ' glge-gui-progressbar';
+        };
+        GUI.Progressbar.prototype.value = 0;
 
+        /**
+         * Set the progress value
+         * @param {number} value    progress value
+         */
+        GUI.Progressbar.prototype.setValue = function (value) {
+            this.value = value;
+        };
 
-/**
- * @class Progressbar	A progressbar widget
- */
-GUI.Progressbar = function(){
-	// call super constructor
-	this.baseclass.call(this);
-	
-	this.domRoot.className += ' glge-gui-progressbar';
-}
-GUI.Progressbar.prototype.value = 0;
+        GLGE.augment(GUI.Widget, GUI.Progressbar);
 
-/**
- * Set the progress value
- * @param {number} value	progress value
- */
-GUI.Progressbar.prototype.setValue = function(value){
-	this.value = value;
-}
-
-GLGE.augment(GUI.Widget,GUI.Progressbar);
-
-
-})(GLGE.GUI);})(GLGE);
+    })(GLGE.GUI);
+})(GLGE);

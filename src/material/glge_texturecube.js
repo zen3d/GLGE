@@ -33,138 +33,142 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
+    /**
+     * @class A texture to be included in a material
+     * @param {string} uid the unique id for this texture
+     * @see GLGE.Material
+     * @augments GLGE.QuickNotation
+     * @augments GLGE.JSONLoader
+     */
+    GLGE.TextureCube = function (uid) {
+        GLGE.Assets.registerAsset(this, uid);
+    };
+    GLGE.augment(GLGE.QuickNotation, GLGE.TextureCube);
+    GLGE.augment(GLGE.JSONLoader, GLGE.TextureCube);
+    GLGE.augment(GLGE.Events, GLGE.TextureCube);
+    GLGE.TextureCube.prototype.className = "TextureCube";
+    GLGE.TextureCube.prototype.posX = null;
+    GLGE.TextureCube.prototype.negX = null;
+    GLGE.TextureCube.prototype.posY = null;
+    GLGE.TextureCube.prototype.negY = null;
+    GLGE.TextureCube.prototype.posZ = null;
+    GLGE.TextureCube.prototype.negZ = null;
+    GLGE.TextureCube.prototype.texture = null;
+    GLGE.TextureCube.prototype.glTexture = null;
+    GLGE.TextureCube.prototype.loadState = 0;
+    /**
+     * Sets the url for a given image
+     * @param {string} url the texture image url
+     * @param {string} image the image element to load
+     */
+    GLGE.TextureCube.prototype.setSrc = function (url, image, mask) {
+        this.url = url;
+        this.state = 0;
+        this[image] = new Image();
+        var texture = this;
+        this[image].onload = function () {
+            texture.loadState += mask;
+        };
+        this[image].src = url;
+        if (this.glTexture && this.gl) {
+            this.gl.deleteTexture(this.glTexture);
+            this.glTexture = null;
+        }
+        return this;
+    };
 
+    /**
+     * Sets the positive X cube image
+     * @param {string} url the texture image url
+     */
+    GLGE.TextureCube.prototype.setSrcPosX = function (url) {
+        this.setSrc(url, "posX", 1);
+        return this;
+    };
+    /**
+     * Sets the negative X cube image
+     * @param {string} url the texture image url
+     */
+    GLGE.TextureCube.prototype.setSrcNegX = function (url) {
+        this.setSrc(url, "negX", 2);
+        return this;
+    };
+    /**
+     * Sets the positive Y cube image
+     * @param {string} url the texture image url
+     */
+    GLGE.TextureCube.prototype.setSrcPosY = function (url) {
+        this.setSrc(url, "posY", 4);
+        return this;
+    };
+    /**
+     * Sets the negative Y cube image
+     * @param {string} url the texture image url
+     */
+    GLGE.TextureCube.prototype.setSrcNegY = function (url) {
+        if (typeof url != "string") {
+            this.negY = url;
+            this.loadState += 8;
+        }
+        else {
+            this.setSrc(url, "negY", 8);
+        }
+        return this;
+    };
+    /**
+     * Sets the positive Z cube image
+     * @param {string} url the texture image url
+     */
+    GLGE.TextureCube.prototype.setSrcPosZ = function (url) {
+        this.setSrc(url, "posZ", 16);
+        return this;
+    };
+    /**
+     * Sets the negative Z cube image
+     * @param {string} url the texture image url
+     */
+    GLGE.TextureCube.prototype.setSrcNegZ = function (url) {
+        this.setSrc(url, "negZ", 32);
+        return this;
+    };
 
+    /**
+     * Sets the textures image location
+     * @private
+     **/
+    GLGE.TextureCube.prototype.doTexture = function (gl, object) {
+        this.gl = gl;
+        //create the texture if it's not already created
+        if (!this.glTexture) {
+            this.glTexture = gl.createTexture();
+        }
+        //if the image is loaded then set in the texture data
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.glTexture);
+        if (this.loadState == 63 && this.state == 0) {
+            gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.posX);
+            gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.negX);
+            gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.posY);
+            gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.negY);
+            gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.posZ);
+            gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.negZ);
 
-/**
-* @class A texture to be included in a material
-* @param {string} uid the unique id for this texture
-* @see GLGE.Material
-* @augments GLGE.QuickNotation
-* @augments GLGE.JSONLoader
-*/
-GLGE.TextureCube=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
-}
-GLGE.augment(GLGE.QuickNotation,GLGE.TextureCube);
-GLGE.augment(GLGE.JSONLoader,GLGE.TextureCube);
-GLGE.augment(GLGE.Events,GLGE.TextureCube);
-GLGE.TextureCube.prototype.className="TextureCube";
-GLGE.TextureCube.prototype.posX=null;
-GLGE.TextureCube.prototype.negX=null;
-GLGE.TextureCube.prototype.posY=null;
-GLGE.TextureCube.prototype.negY=null;
-GLGE.TextureCube.prototype.posZ=null;
-GLGE.TextureCube.prototype.negZ=null;
-GLGE.TextureCube.prototype.texture=null;
-GLGE.TextureCube.prototype.glTexture=null;
-GLGE.TextureCube.prototype.loadState=0;
-/**
-* Sets the url for a given image
-* @param {string} url the texture image url
-* @param {string} image the image element to load
-*/
-GLGE.TextureCube.prototype.setSrc=function(url,image,mask){
-	this.url=url;
-	this.state=0;
-	this[image]=new Image();
-	var texture=this;
-	this[image].onload = function(){
-		texture.loadState+=mask;
-	}	
-	this[image].src=url;	
-	if(this.glTexture && this.gl) {
-		this.gl.deleteTexture(this.glTexture);
-		this.glTexture=null;
-	}
-	return this;
-}
-
-/**
-* Sets the positive X cube image
-* @param {string} url the texture image url
-*/
-GLGE.TextureCube.prototype.setSrcPosX=function(url){
-	this.setSrc(url,"posX",1);
-	return this;
-};
-/**
-* Sets the negative X cube image
-* @param {string} url the texture image url
-*/
-GLGE.TextureCube.prototype.setSrcNegX=function(url){
-	this.setSrc(url,"negX",2);
-	return this;
-};
-/**
-* Sets the positive Y cube image
-* @param {string} url the texture image url
-*/
-GLGE.TextureCube.prototype.setSrcPosY=function(url){
-	this.setSrc(url,"posY",4);
-	return this;
-};
-/**
-* Sets the negative Y cube image
-* @param {string} url the texture image url
-*/
-GLGE.TextureCube.prototype.setSrcNegY=function(url){
-	if(typeof url!="string"){
-		this.negY=url;
-		this.loadState+=8;
-	}else{
-		this.setSrc(url,"negY",8);
-	}
-	return this;
-};
-/**
-* Sets the positive Z cube image
-* @param {string} url the texture image url
-*/
-GLGE.TextureCube.prototype.setSrcPosZ=function(url){
-	this.setSrc(url,"posZ",16);
-	return this;
-};
-/**
-* Sets the negative Z cube image
-* @param {string} url the texture image url
-*/
-GLGE.TextureCube.prototype.setSrcNegZ=function(url){
-	this.setSrc(url,"negZ",32);
-	return this;
-};
-
-/**
-* Sets the textures image location
-* @private
-**/
-GLGE.TextureCube.prototype.doTexture=function(gl,object){
-	this.gl=gl;
-	//create the texture if it's not already created
-	if(!this.glTexture) this.glTexture=gl.createTexture();
-	//if the image is loaded then set in the texture data
-	gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.glTexture);
-	if(this.loadState==63 && this.state==0){
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.posX);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.negX);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.posY);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.negY);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.posZ);
-		gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.negZ);
-		
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
-		gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
-		this.state=1;
-	}
-	gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.glTexture);
-	if(this.state==1) return true;
-		else return false;
-}
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+            gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+            this.state = 1;
+        }
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.glTexture);
+        if (this.state == 1) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    };
 
 })(GLGE);

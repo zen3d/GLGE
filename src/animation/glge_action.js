@@ -33,106 +33,106 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
+    /**
+     * @class Class to describe and action on a skeleton
+     * @param {string} uid a unique reference string for this object
+     * @augments GLGE.QuickNotation
+     * @augments GLGE.JSONLoader
+     */
+    GLGE.Action = function (uid) {
+        this.channels = [];
+        GLGE.Assets.registerAsset(this, uid);
+    };
+    GLGE.augment(GLGE.QuickNotation, GLGE.Action);
+    GLGE.augment(GLGE.JSONLoader, GLGE.Action);
+    /**
+     * @name Action#animFinished
+     * @event
+     * @param {object} data
+     */
+    GLGE.augment(GLGE.Events, GLGE.Action);
 
+    /**
+     * Starts playing the action
+     */
+    GLGE.Action.prototype.start = function (blendTime, loop, names) {
+        if (!loop) {
+            loop = false;
+        }
+        if (!blendTime) {
+            blendTime = 0;
+        }
+        var channels = this.channels;
+        var start = (new Date()).getTime();
+        this.animFinished = false;
 
-/**
-* @class Class to describe and action on a skeleton
-* @param {string} uid a unique reference string for this object
-* @augments GLGE.QuickNotation
-* @augments GLGE.JSONLoader
-*/
-GLGE.Action=function(uid){
-	this.channels=[];
-	GLGE.Assets.registerAsset(this,uid);
-};
-GLGE.augment(GLGE.QuickNotation,GLGE.Action);
-GLGE.augment(GLGE.JSONLoader,GLGE.Action);
-/**
- * @name Action#animFinished
- * @event
- * @param {object} data
- */
-GLGE.augment(GLGE.Events,GLGE.Action);
+        for (var i = 0; i < channels.length; i++) {
+            var animation = channels[i].getAnimation();
+            var action = this;
+            var channel = channels[i];
+            var target = channel.getTarget();
+            if (typeof target == "string") {
+                if (names && names[target]) {
+                    target = names[target];
+                }
+            }
+            var closure = {};
+            closure.finishEvent = function (data) {
+                target.removeEventListener("animFinished", closure.finishEvent);
+                if (!action.animFinished && target.animation == animation) {
+                    action.fireEvent("animFinished", {});
+                    action.animFinished = true;
+                }
+            };
+            target.addEventListener("animFinished", closure.finishEvent);
 
-/**
-* Starts playing the action
-*/
-GLGE.Action.prototype.start=function(blendTime,loop,names){
-	if(!loop) loop=false;
-	if(!blendTime) blendTime=0;
-	var channels=this.channels;
-	var start=(new Date()).getTime();
-	this.animFinished=false;
-	
-	for(var i=0;i<channels.length;i++){
-		var animation=channels[i].getAnimation();
-		var action=this;
-		var channel=channels[i];
-		var target=channel.getTarget();
-		if(typeof target=="string"){
-			if(names && names[target]){
-				target=names[target];
-			}
-		}
-		var closure={};
-		closure.finishEvent=function(data){
-			target.removeEventListener("animFinished",closure.finishEvent);
-			if(!action.animFinished && target.animation==animation){
-				action.fireEvent("animFinished",{});
-				action.animFinished=true;
-			}
-		}
-		target.addEventListener("animFinished",closure.finishEvent);
-		
-		target.setAnimation(animation,blendTime,start);
-		target.setLoop(loop);
+            target.setAnimation(animation, blendTime, start);
+            target.setLoop(loop);
 
-	}
-};
-/**
-* Sets the start frame for all animations
-* @param {number} startFrame the starting frame for the animation
-*/
-GLGE.Action.prototype.setStartFrame=function(startFrame){
-	for(var i=0;i<this.channels.length;i++){
-		this.channels[i].getAnimation().setStartFrame(startFrame);
-	}
-	return this;
-};
-/**
-* Sets the number of frames to play
-* @param {number} frame the number of frames to play
-*/
-GLGE.Action.prototype.setFrames=function(frames){
-	for(var i=0;i<this.channels.length;i++){
-		this.channels[i].getAnimation().setFrames(frames);
-	}
-	return this;
-};
+        }
+    };
+    /**
+     * Sets the start frame for all animations
+     * @param {number} startFrame the starting frame for the animation
+     */
+    GLGE.Action.prototype.setStartFrame = function (startFrame) {
+        for (var i = 0; i < this.channels.length; i++) {
+            this.channels[i].getAnimation().setStartFrame(startFrame);
+        }
+        return this;
+    };
+    /**
+     * Sets the number of frames to play
+     * @param {number} frame the number of frames to play
+     */
+    GLGE.Action.prototype.setFrames = function (frames) {
+        for (var i = 0; i < this.channels.length; i++) {
+            this.channels[i].getAnimation().setFrames(frames);
+        }
+        return this;
+    };
 
-
-/**
-* Adds and action channel to this action
-* @param {GLGE.ActionChannel} channel the channel to be added
-*/
-GLGE.Action.prototype.addActionChannel=function(channel){
-	this.channels.push(channel);
-	return this;
-};
-/**
-* Removes and action channel to this action
-* @param {GLGE.ActionChannel} channel the channel to be removed
-*/
-GLGE.Action.prototype.removeActionChannel=function(channel){
-	for(var i=0;i<this.channels.length;i++){
-		if(this.channels[i]==channels){
-			this.channels.splice(i,1);
-			break;
-		}
-	}
-};
-
+    /**
+     * Adds and action channel to this action
+     * @param {GLGE.ActionChannel} channel the channel to be added
+     */
+    GLGE.Action.prototype.addActionChannel = function (channel) {
+        this.channels.push(channel);
+        return this;
+    };
+    /**
+     * Removes and action channel to this action
+     * @param {GLGE.ActionChannel} channel the channel to be removed
+     */
+    GLGE.Action.prototype.removeActionChannel = function (channel) {
+        for (var i = 0; i < this.channels.length; i++) {
+            if (this.channels[i] == channels) {
+                this.channels.splice(i, 1);
+                break;
+            }
+        }
+    };
 
 })(GLGE);

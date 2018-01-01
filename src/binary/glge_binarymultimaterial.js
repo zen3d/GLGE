@@ -33,38 +33,36 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
+    GLGE.MultiMaterial.prototype.binaryPack = function (pack) {
+        //will need to add multimaterial depenancies first
+        for (var i = 0; i < this.lods.length; i++) {
+            pack.addResource(this.lods[i]);
+        }
 
-GLGE.MultiMaterial.prototype.binaryPack=function(pack){
-	//will need to add multimaterial depenancies first
-	for(var i=0;i<this.lods.length;i++){
-		pack.addResource(this.lods[i]);
-	}
-	
-	var size=8+this.lods.length*40;
-	
-	var buffer=new GLGE.BinaryBuffer(size);
-	buffer.write("Uint32",0); //add fields placeholder for posible future use
+        var size = 8 + this.lods.length * 40;
 
-	buffer.write("Uint32",this.lods.length);
-	for(var i=0;i<this.lods.length;i++){
-		buffer.write("String",this.lods[i].uid,40);
-	}
-	return buffer;
-}
+        var buffer = new GLGE.BinaryBuffer(size);
+        buffer.write("Uint32", 0); //add fields placeholder for posible future use
 
-GLGE.MultiMaterial.binaryUnPack=function(pack,data){
-	var buffer=pack.buffer;
-	var num_fields=buffer.read("Uint32"); //currently always 0
-	var num_lods=buffer.read("Uint32");
-	
-	var multiMaterial=new GLGE.MultiMaterial(data.uid);
-	for(var i=0;i<num_lods;i++){
-		multiMaterial.addObjectLod(pack.getResource(buffer.read("String",40)));
-	}
-	return multiMaterial;
-}
+        buffer.write("Uint32", this.lods.length);
+        for (var i = 0; i < this.lods.length; i++) {
+            buffer.write("String", this.lods[i].uid, 40);
+        }
+        return buffer;
+    };
 
+    GLGE.MultiMaterial.binaryUnPack = function (pack, data) {
+        var buffer = pack.buffer;
+        var num_fields = buffer.read("Uint32"); //currently always 0
+        var num_lods = buffer.read("Uint32");
 
-})(GLGE)
+        var multiMaterial = new GLGE.MultiMaterial(data.uid);
+        for (var i = 0; i < num_lods; i++) {
+            multiMaterial.addObjectLod(pack.getResource(buffer.read("String", 40)));
+        }
+        return multiMaterial;
+    };
+
+})(GLGE);

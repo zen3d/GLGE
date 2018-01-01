@@ -33,55 +33,58 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
-	
-var fieldMap=[
-	["url","Src","String",128],
-]
+(function (GLGE) {
 
-GLGE.Texture.prototype.binaryPack=function(pack){
-	
-	var size=4;
-	
-	for(var i=0;i<fieldMap.length;i++){
-		var map=fieldMap[i];
-		var inc=GLGE.BYTE_SIZES[map[2]];
-		size=Math.ceil(size/inc)*inc
-		size+=inc*map[3];
-	}
-	
-	var buffer=new GLGE.BinaryBuffer(size);
-	buffer.write("Uint32",fieldMap.length);
-	
-	for(var i=0;i<fieldMap.length;i++){
-		var map=fieldMap[i];
-		if(map[3]>1){
-			var value=this[map[0]];
-			if(!value) value=[];
-			buffer.write(map[2],value,map[3]);
-		}else{
-			buffer.write(map[2],this[map[0]]);
-		}
-	}
-	return buffer;
-}
+    var fieldMap = [
+        ["url", "Src", "String", 128],
+    ];
 
-GLGE.Texture.binaryUnPack=function(pack,data){
-	var buffer=pack.buffer;
-	var materialLayer=new GLGE.Texture(data.uid);
-	var num_feilds=buffer.read("Uint32");
-	for(var i=0;i<num_feilds;i++){
-		var map=fieldMap[i];
-		if(map[3]>1){
-			var value=buffer.read(map[2],map[3]);
-			materialLayer["set"+map[1]](value);
-		}else{
-			materialLayer["set"+map[1]](buffer.read(map[2]));
-		}
-	}
-	
-	return materialLayer;
-}
+    GLGE.Texture.prototype.binaryPack = function (pack) {
 
+        var size = 4;
 
-})(GLGE)
+        for (var i = 0; i < fieldMap.length; i++) {
+            var map = fieldMap[i];
+            var inc = GLGE.BYTE_SIZES[map[2]];
+            size = Math.ceil(size / inc) * inc;
+            size += inc * map[3];
+        }
+
+        var buffer = new GLGE.BinaryBuffer(size);
+        buffer.write("Uint32", fieldMap.length);
+
+        for (var i = 0; i < fieldMap.length; i++) {
+            var map = fieldMap[i];
+            if (map[3] > 1) {
+                var value = this[map[0]];
+                if (!value) {
+                    value = [];
+                }
+                buffer.write(map[2], value, map[3]);
+            }
+            else {
+                buffer.write(map[2], this[map[0]]);
+            }
+        }
+        return buffer;
+    };
+
+    GLGE.Texture.binaryUnPack = function (pack, data) {
+        var buffer = pack.buffer;
+        var materialLayer = new GLGE.Texture(data.uid);
+        var num_feilds = buffer.read("Uint32");
+        for (var i = 0; i < num_feilds; i++) {
+            var map = fieldMap[i];
+            if (map[3] > 1) {
+                var value = buffer.read(map[2], map[3]);
+                materialLayer["set" + map[1]](value);
+            }
+            else {
+                materialLayer["set" + map[1]](buffer.read(map[2]));
+            }
+        }
+
+        return materialLayer;
+    };
+
+})(GLGE);

@@ -1,3 +1,9 @@
+NOTE: this repo is a fork of one from Zharktas, who in turn forked it from
+SuperEggbert. My goal in forking it was to bring it up to date, since neither
+repo has been updated in years. I have also changed the formatting (something
+that I usually avoid), but if I am going to maintain this version, I want it
+in a style that is more natural for me. Mea culpa.
+
 WHAT IS GLGE?
 
 GLGE is a javascript library intended to ease the use of WebGL; which is 
@@ -35,8 +41,8 @@ Now open: http://localhost:1234/examples/
 SUPPORT
 
 For help and support:
-IRC: #glge on irc.freenode.net
-EMAIL: glge@googlegroups.com
+IRC: NOPE (was: #glge on irc.freenode.net)
+EMAIL: NOPE (was: glge@googlegroups.com)
 WEB: www.glge.org
 
 FEATURES

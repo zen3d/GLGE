@@ -33,100 +33,114 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
-/**
-* @class A wrapping class for jiglib constraint point
-* @augments GLGE.QuickNotation
-* @augments GLGE.JSONLoader
-*/
-GLGE.PhysicsConstraintPoint=function(){
-}
-GLGE.augment(GLGE.QuickNotation,GLGE.PhysicsConstraintPoint);
-GLGE.augment(GLGE.JSONLoader,GLGE.PhysicsConstraintPoint);
+    /**
+     * @class A wrapping class for jiglib constraint point
+     * @augments GLGE.QuickNotation
+     * @augments GLGE.JSONLoader
+     */
+    GLGE.PhysicsConstraintPoint = function () {
+    };
+    GLGE.augment(GLGE.QuickNotation, GLGE.PhysicsConstraintPoint);
+    GLGE.augment(GLGE.JSONLoader, GLGE.PhysicsConstraintPoint);
 
-GLGE.PhysicsConstraintPoint.constraint=null;
-GLGE.PhysicsConstraintPoint.prototype.className="PhysicsConstraintPoint";
+    GLGE.PhysicsConstraintPoint.constraint = null;
+    GLGE.PhysicsConstraintPoint.prototype.className = "PhysicsConstraintPoint";
 
+    /**
+     * Sets the first body to use with this constraint
+     * @param {GLGE.PhysicsAbstract} body1 The first body
+     */
+    GLGE.PhysicsConstraintPoint.prototype.setBody1 = function (body1) {
+        this.body1 = body1;
+        this.updateConstraint();
+        return this;
+    };
+    /**
+     * Sets the second body to use with this constraint
+     * @param {GLGE.PhysicsAbstract} body2 The second body
+     */
+    GLGE.PhysicsConstraintPoint.prototype.setBody2 = function (body2) {
+        this.body2 = body2;
+        this.updateConstraint();
+        return this;
+    };
+    /**
+     * Sets the constraing point on the first body
+     * @param {array} bodypos1 The first body constraint point
+     */
+    GLGE.PhysicsConstraintPoint.prototype.setBodyPos1 = function (bodypos1) {
+        if (typeof(bodypos1) == "string") {
+            bodypos1 = bodypos1.split(",");
+        }
+        this.bodypos1 = [parseFloat(bodypos1[0]), parseFloat(bodypos1[1]), parseFloat(bodypos1[2])];
+        this.updateConstraint();
+        return this;
+    };
+    /**
+     * Sets the constraing point on the second body
+     * @param {array} bodypos2 The second body constraint point
+     */
+    GLGE.PhysicsConstraintPoint.prototype.setBodyPos2 = function (bodypos2) {
+        if (typeof(bodypos2) == "string") {
+            bodypos2 = bodypos2.split(",");
+        }
+        this.bodypos2 = [parseFloat(bodypos2[0]), parseFloat(bodypos2[1]), parseFloat(bodypos2[2])];
+        this.updateConstraint();
+        return this;
+    };
 
-/**
-* Sets the first body to use with this constraint
-* @param {GLGE.PhysicsAbstract} body1 The first body
-*/
-GLGE.PhysicsConstraintPoint.prototype.setBody1=function(body1){
-	this.body1=body1;
-	this.updateConstraint();
-	return this;
-}
-/**
-* Sets the second body to use with this constraint
-* @param {GLGE.PhysicsAbstract} body2 The second body
-*/
-GLGE.PhysicsConstraintPoint.prototype.setBody2=function(body2){
-	this.body2=body2;
-	this.updateConstraint();
-	return this;
-}
-/**
-* Sets the constraing point on the first body
-* @param {array} bodypos1 The first body constraint point
-*/
-GLGE.PhysicsConstraintPoint.prototype.setBodyPos1=function(bodypos1){
-	if(typeof(bodypos1)=="string") bodypos1=bodypos1.split(",");
-	this.bodypos1=[parseFloat(bodypos1[0]),parseFloat(bodypos1[1]),parseFloat(bodypos1[2])];
-	this.updateConstraint();
-	return this;
-}
-/**
-* Sets the constraing point on the second body
-* @param {array} bodypos2 The second body constraint point
-*/
-GLGE.PhysicsConstraintPoint.prototype.setBodyPos2=function(bodypos2){
-	if(typeof(bodypos2)=="string") bodypos2=bodypos2.split(",");
-	this.bodypos2=[parseFloat(bodypos2[0]),parseFloat(bodypos2[1]),parseFloat(bodypos2[2])];
-	this.updateConstraint();
-	return this;
-}
+    /**
+     * Updates the jiglib constraint
+     * @private
+     */
+    GLGE.PhysicsConstraintPoint.prototype.updateConstraint = function () {
+        if (this.body1 && this.body2 && this.bodypos1 && this.bodypos2) {
+            if (this.constraint) {
+                if (this.parent && this.parent.physicsSystem) {
+                    this.parent.physicsSystem.removeConstraint(this.constraint);
+                }
+                this.body1.removeConstraint(this.constraint);
+                this.body2.removeConstraint(this.constraint);
+            }
+            this.constraint = new jigLib.JConstraintPoint(this.body1.jigLibObj, this.bodypos1, this.body2.jigLibObj, this.bodypos2);
+            if (this.parent && this.parent.physicsSystem) {
+                this.parent.physicsSystem.addConstraint(this.constraint);
+            }
+        }
+    };
 
-/**
-* Updates the jiglib constraint
-* @private
-*/
-GLGE.PhysicsConstraintPoint.prototype.updateConstraint=function(){
-	if(this.body1 && this.body2 && this.bodypos1 && this.bodypos2){
-		if(this.constraint){
-			if(this.parent && this.parent.physicsSystem) this.parent.physicsSystem.removeConstraint(this.constraint);
-			this.body1.removeConstraint(this.constraint);
-			this.body2.removeConstraint(this.constraint);
-		}
-		this.constraint=new jigLib.JConstraintPoint(this.body1.jigLibObj,this.bodypos1,this.body2.jigLibObj,this.bodypos2);
-		if(this.parent && this.parent.physicsSystem) this.parent.physicsSystem.addConstraint(this.constraint);
-	}
-}
+    /**
+     * Add a new physics constraint to the scene
+     * @param {GLGE.PhysicsConstraintPoint} constraint The constraint to add to the scene
+     */
+    GLGE.Scene.prototype.addPhysicsConstraintPoint = function (constraint) {
+        if (!this.constraints) {
+            this.constraints = [];
+        }
+        this.constraints.push(constraint);
+        if (this.physicsSystem) {
+            this.physicsSystem.addConstraint(constraint.constraint);
+        }
+        return this;
+    };
 
-/**
-* Add a new physics constraint to the scene
-* @param {GLGE.PhysicsConstraintPoint} constraint The constraint to add to the scene
-*/
-GLGE.Scene.prototype.addPhysicsConstraintPoint=function(constraint){
-	if(!this.constraints) this.constraints=[];
-	this.constraints.push(constraint);
-	if(this.physicsSystem) this.physicsSystem.addConstraint(constraint.constraint);
-	return this;
-}
-
-/**
-* Removes a physics constraint to the scene
-* @param {GLGE.PhysicsConstraintPoint} constraint The constraint to remove from the scene
-*/
-GLGE.Scene.prototype.removePhysicsConstraintPoint=function(constraint){
-	if(!this.constraints) this.constraints=[];
-	if(this.constraints.indexOf(constraint)>-1){
-		this.constraints.push(constraint);
-		if(this.physicsSystem) this.physicsSystem.removeConstraint(constraint.constraint);
-	}
-	return this;
-}
-
+    /**
+     * Removes a physics constraint to the scene
+     * @param {GLGE.PhysicsConstraintPoint} constraint The constraint to remove from the scene
+     */
+    GLGE.Scene.prototype.removePhysicsConstraintPoint = function (constraint) {
+        if (!this.constraints) {
+            this.constraints = [];
+        }
+        if (this.constraints.indexOf(constraint) > -1) {
+            this.constraints.push(constraint);
+            if (this.physicsSystem) {
+                this.physicsSystem.removeConstraint(constraint.constraint);
+            }
+        }
+        return this;
+    };
 
 })(GLGE);

@@ -33,51 +33,51 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
-/**
-* @class A class to load json fragments from remote location or string
-**/
-GLGE.JSONLoader=function(){
-}
-GLGE.JSONLoader.prototype.downloadPriority=0;
-/**
-* Loads a json fragment from a url
-* @param {string} url The URL to load
-**/
-GLGE.JSONLoader.prototype.setJSONSrc=function(url){
-	var GLGEObj=this;
-	GLGE.Message.messageLoader(url,function(text){
-		GLGEObj.setJSONString(text);
-	},this.downloadPriority);
-}
-/**
-* Loads a json fragment from a string
-* @param {string} string The URL to load
-**/
-GLGE.JSONLoader.prototype.setJSONString=function(string){
-	var message = JSON.parse(string);
-	//check to make sure this is the correct class type
-	if(message.type==this.className){
-		message.uid=this.uid;
-		//we don't want to create a new one we want to update this one
-		message.command="update";
-		GLGE.Message.parseMessage(message);
-	}
-}
-/**
-* Sets the download priority
-* @param {number} value The download priority
-**/
-GLGE.JSONLoader.prototype.setDownloadPriority=function(value){
-	this.downloadPriority=value;
-}
-/**
-* Gets the download priority
-* @returns {number} The download priority
-**/
-GLGE.JSONLoader.prototype.getDownloadPriority=function(){
-	return this.downloadPriority;
-}
+    /**
+     * @class A class to load json fragments from remote location or string
+     **/
+    GLGE.JSONLoader = function () {
+    };
+    GLGE.JSONLoader.prototype.downloadPriority = 0;
+    /**
+     * Loads a json fragment from a url
+     * @param {string} url The URL to load
+     **/
+    GLGE.JSONLoader.prototype.setJSONSrc = function (url) {
+        var GLGEObj = this;
+        GLGE.Message.messageLoader(url, function (text) {
+            GLGEObj.setJSONString(text);
+        }, this.downloadPriority);
+    };
+    /**
+     * Loads a json fragment from a string
+     * @param {string} string The URL to load
+     **/
+    GLGE.JSONLoader.prototype.setJSONString = function (string) {
+        var message = JSON.parse(string);
+        //check to make sure this is the correct class type
+        if (message.type == this.className) {
+            message.uid = this.uid;
+            //we don't want to create a new one we want to update this one
+            message.command = "update";
+            GLGE.Message.parseMessage(message);
+        }
+    };
+    /**
+     * Sets the download priority
+     * @param {number} value The download priority
+     **/
+    GLGE.JSONLoader.prototype.setDownloadPriority = function (value) {
+        this.downloadPriority = value;
+    };
+    /**
+     * Gets the download priority
+     * @returns {number} The download priority
+     **/
+    GLGE.JSONLoader.prototype.getDownloadPriority = function () {
+        return this.downloadPriority;
+    };
 
 })(GLGE);

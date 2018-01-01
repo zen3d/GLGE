@@ -33,141 +33,139 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
+    /**
+     * @class A canvase texture to be included in a material
+     * @param {string} uid the unique id for this texture
+     * @see GLGE.Material
+     * @augments GLGE.QuickNotation
+     * @augments GLGE.JSONLoader
+     */
+    GLGE.TextureCanvas = function (uid) {
+        this.canvas = document.createElement("canvas");
+        //temp canvas to force chrome to update FIX ME when bug sorted!
+        this.t = document.createElement("canvas");
+        this.t.width = 1;
+        this.t.height = 1;
+        GLGE.Assets.registerAsset(this, uid);
+    };
+    GLGE.augment(GLGE.QuickNotation, GLGE.TextureCanvas);
+    GLGE.augment(GLGE.JSONLoader, GLGE.TextureCanvas);
+    GLGE.augment(GLGE.Events, GLGE.TextureCanvas);
+    GLGE.TextureCanvas.prototype.className = "TextureCanvas";
+    GLGE.TextureCanvas.prototype.glTexture = null;
+    GLGE.TextureCanvas.prototype.autoUpdate = true;
+    /**
+     * Gets the auto update flag
+     * @return {boolean} The auto update flag
+     */
+    GLGE.TextureCanvas.prototype.getAutoUpdate = function () {
+        return this.autoUpdate;
+    };
+    /**
+     * Sets the auto update flag
+     * @param {boolean} value The auto update flag
+     */
+    GLGE.TextureCanvas.prototype.setAutoUpdate = function (value) {
+        this.autoUpdate = value;
+        return this;
+    };
+    /**
+     * Gets the canvas used by the texture
+     * @return {canvas} The textures image url
+     */
+    GLGE.TextureCanvas.prototype.getCanvas = function () {
+        return this.canvas;
+    };
+    /**
+     * Sets the canvas used by the texture
+     * @param {canvas} canvas The canvas to use
+     */
+    GLGE.TextureCanvas.prototype.setCanvas = function (canvas) {
+        this.canvas = canvas;
+        return this;
+    };
+    /**
+     * Sets the canvas height
+     * @param {number} value The canvas height
+     */
+    GLGE.TextureCanvas.prototype.setHeight = function (value) {
+        this.canvas.height = value;
+        return this;
+    };
+    /**
+     * Sets the canvas width
+     * @param {number} value The canvas width
+     */
+    GLGE.TextureCanvas.prototype.setWidth = function (value) {
+        this.canvas.width = value;
+        return this;
+    };
 
+    /**
+     * gets the canvas height
+     * @returns {number} The canvas height
+     */
+    GLGE.TextureCanvas.prototype.getHeight = function () {
+        return this.canvas.height;
+    };
+    /**
+     * gets the canvas width
+     * @returns {number} The canvas width
+     */
+    GLGE.TextureCanvas.prototype.getWidth = function () {
+        return this.canvas.width;
+    };
 
+    /**
+     * does the canvas texture GL stuff
+     * @private
+     **/
+    GLGE.TextureCanvas.prototype.doTexture = function (gl) {
+        this.gl = gl;
+        //create the texture if it's not already created
+        if (!this.glTexture) {
+            this.glTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            this.updateCanvas(gl);
+        }
+        else {
+            gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            if (this.autoUpdate || this.doUpdate) {
+                this.updateCanvas(gl);
+            }
+        }
+        this.doUpdate = false;
 
-/**
-* @class A canvase texture to be included in a material
-* @param {string} uid the unique id for this texture
-* @see GLGE.Material
-* @augments GLGE.QuickNotation
-* @augments GLGE.JSONLoader
-*/
-GLGE.TextureCanvas=function(uid){
-	this.canvas=document.createElement("canvas");
-	//temp canvas to force chrome to update FIX ME when bug sorted!
-	this.t=document.createElement("canvas");
-	this.t.width=1;
-	this.t.height=1;
-	GLGE.Assets.registerAsset(this,uid);
-}
-GLGE.augment(GLGE.QuickNotation,GLGE.TextureCanvas);
-GLGE.augment(GLGE.JSONLoader,GLGE.TextureCanvas);
-GLGE.augment(GLGE.Events,GLGE.TextureCanvas);
-GLGE.TextureCanvas.prototype.className="TextureCanvas";
-GLGE.TextureCanvas.prototype.glTexture=null;
-GLGE.TextureCanvas.prototype.autoUpdate=true;
-/**
-* Gets the auto update flag
-* @return {boolean} The auto update flag
-*/
-GLGE.TextureCanvas.prototype.getAutoUpdate=function(){
-	return this.autoUpdate;
-};
-/**
-* Sets the auto update flag
-* @param {boolean} value The auto update flag
-*/
-GLGE.TextureCanvas.prototype.setAutoUpdate=function(value){
-	this.autoUpdate=value;
-	return this;
-};
-/**
-* Gets the canvas used by the texture
-* @return {canvas} The textures image url
-*/
-GLGE.TextureCanvas.prototype.getCanvas=function(){
-	return this.canvas;
-};
-/**
-* Sets the canvas used by the texture
-* @param {canvas} canvas The canvas to use
-*/
-GLGE.TextureCanvas.prototype.setCanvas=function(canvas){
-	this.canvas=canvas;
-	return this;
-};
-/**
-* Sets the canvas height
-* @param {number} value The canvas height
-*/
-GLGE.TextureCanvas.prototype.setHeight=function(value){
-	this.canvas.height=value;
-	return this;
-};
-/**
-* Sets the canvas width
-* @param {number} value The canvas width
-*/
-GLGE.TextureCanvas.prototype.setWidth=function(value){
-	this.canvas.width=value;
-	return this;
-};
+        return true;
+    };
+    /**
+     * Manually updates the canvas Texture
+     */
+    GLGE.TextureCanvas.prototype.update = function () {
+        this.doUpdate = true;
+    };
+    /**
+     * Updates the canvas texture
+     * @private
+     */
+    GLGE.TextureCanvas.prototype.updateCanvas = function (gl) {
+        var canvas = this.canvas;
+        gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
 
-/**
-* gets the canvas height
-* @returns {number} The canvas height
-*/
-GLGE.TextureCanvas.prototype.getHeight=function(){
-	return this.canvas.height;
-};
-/**
-* gets the canvas width
-* @returns {number} The canvas width
-*/
-GLGE.TextureCanvas.prototype.getWidth=function(){
-	return this.canvas.width;
-};
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.t); //force chrome to update remove when chrome bug fixed
 
-/**
-* does the canvas texture GL stuff
-* @private
-**/
-GLGE.TextureCanvas.prototype.doTexture=function(gl){
-	this.gl=gl;
-	//create the texture if it's not already created
-	if(!this.glTexture){
-		this.glTexture=gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		this.updateCanvas(gl);
-	}else{
-		gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		if(this.autoUpdate || this.doUpdate) this.updateCanvas(gl);
-	}
-	this.doUpdate=false;
-
-	
-	return true;
-}
-/**
-* Manually updates the canvas Texture
-*/
-GLGE.TextureCanvas.prototype.update=function(){
-	this.doUpdate=true;
-}
-/**
-* Updates the canvas texture
-* @private
-*/
-GLGE.TextureCanvas.prototype.updateCanvas=function(gl){
-	var canvas = this.canvas;
-	gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
-	
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.t); //force chrome to update remove when chrome bug fixed
-	
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.generateMipmap(gl.TEXTURE_2D);
-}
-
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.generateMipmap(gl.TEXTURE_2D);
+    };
 
 })(GLGE);

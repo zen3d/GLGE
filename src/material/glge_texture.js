@@ -33,126 +33,133 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
 
 
-/**
-* @name GLGE.Texture#downloadComplete
-* @event fires when all the assets for this texture have finished loading
-* @param {object} data
-*/
+    /**
+     * @name GLGE.Texture#downloadComplete
+     * @event fires when all the assets for this texture have finished loading
+     * @param {object} data
+     */
 
+    /**
+     * @class A texture to be included in a material
+     * @param {string} uid the unique id for this texture
+     * @see GLGE.Material
+     * @augments GLGE.QuickNotation
+     * @augments GLGE.JSONLoader
+     * @augments GLGE.Events
+     */
+    GLGE.Texture = function (uid) {
+        GLGE.Assets.registerAsset(this, uid);
+    };
+    GLGE.augment(GLGE.QuickNotation, GLGE.Texture);
+    GLGE.augment(GLGE.JSONLoader, GLGE.Texture);
+    GLGE.augment(GLGE.Events, GLGE.Texture);
+    GLGE.Texture.prototype.className = "Texture";
+    GLGE.Texture.prototype.image = null;
+    GLGE.Texture.prototype.glTexture = null;
+    GLGE.Texture.prototype.url = null;
+    GLGE.Texture.prototype.state = 0;
+    /**
+     * Gets the textures used by the layer
+     * @return {string} The textures image url
+     */
+    GLGE.Texture.prototype.getSrc = function () {
+        return this.url;
+    };
 
+    /**
+     * Sets the textures image location
+     * @param {string} url the texture image url
+     * @param {boolean} crossOrigin sets the image to request anonymous cross origin headers
+     */
+    GLGE.Texture.prototype.setSrc = function (url, crossOrigin) {
+        this.url = url;
+        this.state = 0;
+        this.image = new Image();
+        if (crossOrigin == true || crossOrigin == "true") {
+            this.image.crossOrigin = '';
+        }
+        var texture = this;
+        this.image.onload = function () {
+            texture.state = 1;
+            texture.fireEvent("downloadComplete");
+        };
+        this.image.src = url;
+        if (this.glTexture && this.gl) {
+            this.gl.deleteTexture(this.glTexture);
+            this.glTexture = null;
+        }
+        return this;
+    };
 
-/**
-* @class A texture to be included in a material
-* @param {string} uid the unique id for this texture
-* @see GLGE.Material
-* @augments GLGE.QuickNotation
-* @augments GLGE.JSONLoader
-* @augments GLGE.Events
-*/
-GLGE.Texture=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
-}
-GLGE.augment(GLGE.QuickNotation,GLGE.Texture);
-GLGE.augment(GLGE.JSONLoader,GLGE.Texture);
-GLGE.augment(GLGE.Events,GLGE.Texture);
-GLGE.Texture.prototype.className="Texture";
-GLGE.Texture.prototype.image=null;
-GLGE.Texture.prototype.glTexture=null;
-GLGE.Texture.prototype.url=null;
-GLGE.Texture.prototype.state=0;
-/**
-* Gets the textures used by the layer
-* @return {string} The textures image url
-*/
-GLGE.Texture.prototype.getSrc=function(){
-	return this.url;
-};
+    /**
+     * Sets the textures image location
+     * @private
+     **/
+    GLGE.Texture.prototype.doTexture = function (gl) {
+        this.gl = gl;
+        if (!gl.urlTextures) {
+            gl.urlTextures = {};
+        }
+        if (gl.urlTextures[this.url]) {
+            this.glTexture = gl.urlTextures[this.url];
+            this.state = 2;
+        }
+        //create the texture if it's not already created
+        if (!this.image) {
+            this.setSrc(this.url);
+        }
+        if (!this.glTexture) {
+            this.glTexture = gl.createTexture();
+        }
+        //if the image is loaded then set in the texture data
+        if (this.state == 1) {
+            gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
+            //START... FRANCISCO REIS: to accept Non Power of Two Images
+            var w = Math.pow(2, Math.round(Math.log(this.image.width) / Math.log(2)));
+            var h = Math.pow(2, Math.round(Math.log(this.image.height) / Math.log(2)));
 
-/**
-* Sets the textures image location
-* @param {string} url the texture image url
-* @param {boolean} crossOrigin sets the image to request anonymous cross origin headers
-*/
-GLGE.Texture.prototype.setSrc=function(url, crossOrigin){
-	this.url=url;
-	this.state=0;
-	this.image=new Image();
-	if ( crossOrigin == true || crossOrigin == "true"){
-		this.image.crossOrigin = '';
-	}
-	var texture=this;
-	this.image.onload = function(){
-		texture.state=1;
-    	texture.fireEvent("downloadComplete");
-	}	
-	this.image.src=url;	
-	if(this.glTexture && this.gl){
-		this.gl.deleteTexture(this.glTexture);
-		this.glTexture=null;
-	}
-	return this;
-};
+            var imageOrCanvas;
+            if (w == this.image.width && h == this.image.height) {
+                imageOrCanvas = this.image;
+            }
+            else {
+                imageOrCanvas = document.createElement("canvas");
+                imageOrCanvas.width = w;
+                imageOrCanvas.height = h;
+                var context = imageOrCanvas.getContext("2d");
+                context.drawImage(this.image, 0, 0, w, h);
+            }
 
-/**
-* Sets the textures image location
-* @private
-**/
-GLGE.Texture.prototype.doTexture=function(gl){
-	this.gl=gl;
-	if(!gl.urlTextures) gl.urlTextures={};
-	if(gl.urlTextures[this.url]){
-		this.glTexture=gl.urlTextures[this.url];
-		this.state=2;
-	}
-	//create the texture if it's not already created
-	if(!this.image) this.setSrc(this.url);
-	if(!this.glTexture) this.glTexture=gl.createTexture();
-	//if the image is loaded then set in the texture data
-	if(this.state==1){
-		gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
-		//START... FRANCISCO REIS: to accept Non Power of Two Images
-		var w = Math.pow( 2, Math.round( Math.log( this.image.width ) / Math.log( 2 ) ) );
-		var h = Math.pow( 2, Math.round( Math.log( this.image.height ) / Math.log( 2 ) ) );
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageOrCanvas);//this line was replaced from ",this.image)" to ",imageOrCanvas)"
+            //...END FRANCISCO REIS: to accept Non Power of Two Images
+            gl.urlTextures[this.url] = this.glTexture;
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            this.state = 2;
+        }
+        gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 
-		var imageOrCanvas;
-		if(w == this.image.width && h == this.image.height)
-			imageOrCanvas = this.image;
-		else
-		{
-			imageOrCanvas = document.createElement("canvas");
-			imageOrCanvas.width=w;
-			imageOrCanvas.height=h;
-			var context = imageOrCanvas.getContext("2d");
-			context.drawImage(this.image,0,0,w,h);
-		}
+        if (this.state == 2) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    };
 
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,imageOrCanvas);//this line was replaced from ",this.image)" to ",imageOrCanvas)"
-		//...END FRANCISCO REIS: to accept Non Power of Two Images
-		gl.urlTextures[this.url]=this.glTexture;
-		gl.generateMipmap(gl.TEXTURE_2D);
-		gl.bindTexture(gl.TEXTURE_2D, null);
-		this.state=2;
-	}
-	gl.bindTexture(gl.TEXTURE_2D, this.glTexture);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-	
-	if(this.state==2) return true;
-		else return false;
-}
-
-
-/**
-* Determin if the image resource has been downloaded
-**/
-GLGE.Texture.prototype.isComplete=function(){
-    return this.state>0;
-}
+    /**
+     * Determin if the image resource has been downloaded
+     **/
+    GLGE.Texture.prototype.isComplete = function () {
+        return this.state > 0;
+    };
 
 })(GLGE);

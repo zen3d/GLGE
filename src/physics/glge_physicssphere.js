@@ -32,39 +32,41 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * @author me@paulbrunt.co.uk
  */
 
-(function(GLGE){
+(function (GLGE) {
 
-/**
-* @class A wrapping class for jiglib spheres
-* @augments GLGE.PhysicsAbstract
-*/
-GLGE.PhysicsSphere=function(uid){
-	this.jigLibObj=new jigLib.JSphere(this,this.radius);
-	this.jigLibObj.GLGE=this;
-	this.jigLibObj.addEventListener(jigLib.JCollisionEvent.COLLISION, function(event){this.GLGE.fireEvent("collision",{obj:event.collisionBody.GLGE,impulse:event.collisionImpulse})});
-	GLGE.PhysicsAbstract.call(this,uid);
-}
-GLGE.augment(GLGE.PhysicsAbstract,GLGE.PhysicsSphere);
+    /**
+     * @class A wrapping class for jiglib spheres
+     * @augments GLGE.PhysicsAbstract
+     */
+    GLGE.PhysicsSphere = function (uid) {
+        this.jigLibObj = new jigLib.JSphere(this, this.radius);
+        this.jigLibObj.GLGE = this;
+        this.jigLibObj.addEventListener(jigLib.JCollisionEvent.COLLISION, function (event) {
+            this.GLGE.fireEvent("collision", {obj: event.collisionBody.GLGE, impulse: event.collisionImpulse});
+        });
+        GLGE.PhysicsAbstract.call(this, uid);
+    };
+    GLGE.augment(GLGE.PhysicsAbstract, GLGE.PhysicsSphere);
 
-GLGE.PhysicsSphere.prototype.radius=1;
+    GLGE.PhysicsSphere.prototype.radius = 1;
 
-GLGE.PhysicsSphere.prototype.className="PhysicsSphere";
-/**
-* Sets the radius of the sphere
-* @param {number} value The radius to set
-*/
-GLGE.PhysicsSphere.prototype.setRadius=function(value){
-	this.physicsRadius=+value;
-	this.jigLibObj.set_radius(+value);
-	return this;
-}
+    GLGE.PhysicsSphere.prototype.className = "PhysicsSphere";
+    /**
+     * Sets the radius of the sphere
+     * @param {number} value The radius to set
+     */
+    GLGE.PhysicsSphere.prototype.setRadius = function (value) {
+        this.physicsRadius = +value;
+        this.jigLibObj.set_radius(+value);
+        return this;
+    };
 
-/**
-* Gets the radius of the sphere
-* @returns {number} The radius to set
-*/
-GLGE.PhysicsSphere.prototype.getRadius=function(value){
-	return this.jigLibObj.get_radius();
-}
+    /**
+     * Gets the radius of the sphere
+     * @returns {number} The radius to set
+     */
+    GLGE.PhysicsSphere.prototype.getRadius = function (value) {
+        return this.jigLibObj.get_radius();
+    };
 
 })(GLGE);

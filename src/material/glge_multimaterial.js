@@ -33,139 +33,141 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
-/**
-* @name GLGE.MultiMaterial#downloadComplete
-* @event fires when all the assets for this class have finished loading
-* @param {object} data
-*/
+    /**
+     * @name GLGE.MultiMaterial#downloadComplete
+     * @event fires when all the assets for this class have finished loading
+     * @param {object} data
+     */
 
-/**
-* @class Creates a new mesh/material to add to an object
-* @augments GLGE.QuickNotation
-* @augments GLGE.JSONLoader
-* @augments GLGE.Events
-*/
-GLGE.MultiMaterial=function(uid){
-    var multiMaterial=this;
-    this.downloadComplete=function(){
-        if(multiMaterial.isComplete()) multiMaterial.fireEvent("downloadComplete");
-    }
-    this.boundUpdate=function(){
-        multiMaterial.fireEvent("boundupdate");
-    }
-	this.lods=[new GLGE.ObjectLod];
-    this.lods[0].addEventListener("downloadComplete",this.downloadComplete);
-    this.lods[0].addEventListener("boundupdate",this.boundUpdate);
-	GLGE.Assets.registerAsset(this,uid);
-}
-GLGE.augment(GLGE.QuickNotation,GLGE.MultiMaterial);
-GLGE.augment(GLGE.JSONLoader,GLGE.MultiMaterial);
-GLGE.augment(GLGE.Events,GLGE.MultiMaterial);
-GLGE.MultiMaterial.prototype.className="MultiMaterial";
-GLGE.MultiMaterial.prototype.oneLod=true;
+    /**
+     * @class Creates a new mesh/material to add to an object
+     * @augments GLGE.QuickNotation
+     * @augments GLGE.JSONLoader
+     * @augments GLGE.Events
+     */
+    GLGE.MultiMaterial = function (uid) {
+        var multiMaterial = this;
+        this.downloadComplete = function () {
+            if (multiMaterial.isComplete()) {
+                multiMaterial.fireEvent("downloadComplete");
+            }
+        };
+        this.boundUpdate = function () {
+            multiMaterial.fireEvent("boundupdate");
+        };
+        this.lods = [new GLGE.ObjectLod];
+        this.lods[0].addEventListener("downloadComplete", this.downloadComplete);
+        this.lods[0].addEventListener("boundupdate", this.boundUpdate);
+        GLGE.Assets.registerAsset(this, uid);
+    };
+    GLGE.augment(GLGE.QuickNotation, GLGE.MultiMaterial);
+    GLGE.augment(GLGE.JSONLoader, GLGE.MultiMaterial);
+    GLGE.augment(GLGE.Events, GLGE.MultiMaterial);
+    GLGE.MultiMaterial.prototype.className = "MultiMaterial";
+    GLGE.MultiMaterial.prototype.oneLod = true;
 
+    /**
+     * Checks  if resources have finished downloading
+     * @returns {boolean}
+     */
+    GLGE.MultiMaterial.prototype.isComplete = function () {
+        for (var i = 0; i < this.lods.length; i++) {
+            if (!this.lods[i].isComplete()) {
+                return false;
+            }
+        }
+        return true;
+    };
 
-/**
-* Checks  if resources have finished downloading
-* @returns {boolean}
-*/
-GLGE.MultiMaterial.prototype.isComplete=function(){
-    for(var i=0;i<this.lods.length;i++){
-        if(!this.lods[i].isComplete()) return false;
-    }
-    return true;
-}
+    /**
+     * sets the mesh
+     * @param {GLGE.Mesh} mesh
+     */
+    GLGE.MultiMaterial.prototype.setMesh = function (mesh) {
+        this.lods[0].setMesh(mesh);
+        return this;
+    };
+    /**
+     * gets the mesh
+     * @returns {GLGE.Mesh}
+     */
+    GLGE.MultiMaterial.prototype.getMesh = function () {
+        return this.lods[0].getMesh();
+    };
+    /**
+     * sets the material
+     * @param {GLGE.Material} material
+     */
+    GLGE.MultiMaterial.prototype.setMaterial = function (material) {
+        this.lods[0].setMaterial(material);
+        return this;
+    };
+    /**
+     * gets the material
+     * @returns {GLGE.Material}
+     */
+    GLGE.MultiMaterial.prototype.getMaterial = function () {
+        return this.lods[0].getMaterial();
+    };
 
-/**
-* sets the mesh
-* @param {GLGE.Mesh} mesh 
-*/
-GLGE.MultiMaterial.prototype.setMesh=function(mesh){
-	this.lods[0].setMesh(mesh);
-	return this;
-}
-/**
-* gets the mesh
-* @returns {GLGE.Mesh}
-*/
-GLGE.MultiMaterial.prototype.getMesh=function(){
-	return this.lods[0].getMesh();
-}
-/**
-* sets the material
-* @param {GLGE.Material} material 
-*/
-GLGE.MultiMaterial.prototype.setMaterial=function(material){
-	this.lods[0].setMaterial(material);
-	return this;
-}
-/**
-* gets the material
-* @returns {GLGE.Material}
-*/
-GLGE.MultiMaterial.prototype.getMaterial=function(){
-	return this.lods[0].getMaterial();
-}
+    /**
+     * returns the load for a given pixel size
+     * @param {number} pixelsize the current pixel size of the object
+     * @returns {GLGE.ObjectLod}
+     */
+    GLGE.MultiMaterial.prototype.getLOD = function (pixelsize) {
+        var currentSize = 0;
+        var currentLOD = this.lods[0];
+        if (this.lods.length > 1) {
+            for (var i = 1; i < this.lods.length; i++) {
+                var size = this.lods[i].pixelSize;
+                if (size > currentSize && size < pixelsize && this.lods[i].mesh && this.lods[i].mesh.loaded) {
+                    currentSize = size;
+                    currentLOD = this.lods[i];
+                }
+            }
+        }
+        return currentLOD;
+    };
 
-/**
-* returns the load for a given pixel size
-* @param {number} pixelsize the current pixel size of the object
-* @returns {GLGE.ObjectLod}
-*/
-GLGE.MultiMaterial.prototype.getLOD=function(pixelsize){
-	var currentSize=0;
-	var currentLOD=this.lods[0];
-	if(this.lods.length>1){
-		for(var i=1; i<this.lods.length;i++){
-			var size=this.lods[i].pixelSize;
-			if(size>currentSize && size<pixelsize && this.lods[i].mesh && this.lods[i].mesh.loaded){
-				currentSize=size;
-				currentLOD=this.lods[i];
-			}
-		}
-	}
-	return currentLOD;
-}
+    /**
+     * adds a lod to this multimaterial
+     * @param {GLGE.ObjectLod} lod the lod to add
+     */
+    GLGE.MultiMaterial.prototype.addObjectLod = function (lod) {
+        if (this.oneLod) {
+            this.oneLod = false;
+            this.lods = [];
+        }
+        this.lods.push(lod);
+        lod.addEventListener("downloadComplete", this.downloadComplete);
+        return this;
+    };
 
-/**
-* adds a lod to this multimaterial
-* @param {GLGE.ObjectLod} lod the lod to add
-*/
-GLGE.MultiMaterial.prototype.addObjectLod=function(lod){
-	if(this.oneLod){
-		this.oneLod=false;
-		this.lods=[];
-	}
-	this.lods.push(lod);
-    lod.addEventListener("downloadComplete",this.downloadComplete);
-	return this;
-}
+    /**
+     * Updates the GL shader program for the object
+     * @private
+     */
+    GLGE.MultiMaterial.prototype.updateProgram = function () {
+        for (var i = 0; i < this.lods.length; i++) {
+            this.lods[i].GLShaderProgram = null;
+        }
+        return this;
+    };
 
-/**
-* Updates the GL shader program for the object
-* @private
-*/
-GLGE.MultiMaterial.prototype.updateProgram=function(){
-	for(var i=0; i<this.lods.length;i++){
-		this.lods[i].GLShaderProgram=null;
-	}
-	return this;
-}
-
-
-/**
-* removes a lod to this multimaterial
-* @param {GLGE.ObjectLod} lod the lod to remove
-*/
-GLGE.MultiMaterial.prototype.removeObjectLod=function(lod){
-	var idx=this.lods.indexOf(lod);
-    lods[idx].removeEventListener("downloadComplete",this.downloadComplete);
-	if(idx) this.lods.splice(idx,1);
-	return this;
-}
-
-
+    /**
+     * removes a lod to this multimaterial
+     * @param {GLGE.ObjectLod} lod the lod to remove
+     */
+    GLGE.MultiMaterial.prototype.removeObjectLod = function (lod) {
+        var idx = this.lods.indexOf(lod);
+        lods[idx].removeEventListener("downloadComplete", this.downloadComplete);
+        if (idx) {
+            this.lods.splice(idx, 1);
+        }
+        return this;
+    };
 
 })(GLGE);

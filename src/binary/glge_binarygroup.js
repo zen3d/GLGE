@@ -33,108 +33,108 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
+    var fieldMap = [
+        ["locX", "LocX", "Float32", 1],
+        ["locY", "LocY", "Float32", 1],
+        ["locZ", "LocZ", "Float32", 1],
+        ["dLocX", "DLocX", "Float32", 1],
+        ["dLocY", "DLocY", "Float32", 1],
+        ["dLocZ", "DLocZ", "Float32", 1],
+        ["rotX", "RotX", "Float32", 1],
+        ["rotY", "RotY", "Float32", 1],
+        ["rotZ", "RotZ", "Float32", 1],
+        ["dRotX", "DRotX", "Float32", 1],
+        ["dRotY", "DRotY", "Float32", 1],
+        ["dRotZ", "DRotZ", "Float32", 1],
+        ["scaleX", "ScaleX", "Float32", 1],
+        ["scaleY", "ScaleY", "Float32", 1],
+        ["scaleZ", "ScaleZ", "Float32", 1],
+        ["dScaleX", "DScaleX", "Float32", 1],
+        ["dScaleY", "DScaleY", "Float32", 1],
+        ["dScaleZ", "DScaleZ", "Float32", 1],
+        ["quatX", "QuatX", "Float32", 1],
+        ["quatY", "QuatY", "Float32", 1],
+        ["quatZ", "QuatZ", "Float32", 1],
+        ["quatW", "QuatW", "Float32", 1],
+        ["rotOrder", "RotOrder", "Uint16", 1],
+        ["rotmatrix", "RotMatrix", "Float32", 16],
+        ["mode", "TransformMode", "Uint16", 1],
+        ["upAxis", "UpAxis", "Float32", 3]];
 
-var fieldMap=[
-["locX","LocX","Float32",1],
-["locY","LocY","Float32",1],
-["locZ","LocZ","Float32",1],
-["dLocX","DLocX","Float32",1],
-["dLocY","DLocY","Float32",1],
-["dLocZ","DLocZ","Float32",1],
-["rotX","RotX","Float32",1],
-["rotY","RotY","Float32",1],
-["rotZ","RotZ","Float32",1],
-["dRotX","DRotX","Float32",1],
-["dRotY","DRotY","Float32",1],
-["dRotZ","DRotZ","Float32",1],
-["scaleX","ScaleX","Float32",1],
-["scaleY","ScaleY","Float32",1],
-["scaleZ","ScaleZ","Float32",1],
-["dScaleX","DScaleX","Float32",1],
-["dScaleY","DScaleY","Float32",1],
-["dScaleZ","DScaleZ","Float32",1],
-["quatX","QuatX","Float32",1],
-["quatY","QuatY","Float32",1],
-["quatZ","QuatZ","Float32",1],
-["quatW","QuatW","Float32",1],
-["rotOrder","RotOrder","Uint16",1],
-["rotmatrix","RotMatrix","Float32",16],
-["mode","TransformMode","Uint16",1],
-["upAxis","UpAxis","Float32",3]];
+    GLGE.Group.prototype.binaryPack = function (pack) {
+        var num_children = 0;
+        for (var i = 0; i < this.children.length; i++) {
+            var child = this.children[i];
+            if (child.className == "Object" || child.className == "Group") {
+                pack.addResource(child);
+                num_children++;
+            }
+        }
 
+        var size = 8 + num_children * 40;
 
+        for (var i = 0; i < fieldMap.length; i++) {
+            var map = fieldMap[i];
+            var inc = GLGE.BYTE_SIZES[map[2]];
+            size = Math.ceil(size / inc) * inc;
+            size += inc * map[3];
+        }
 
-GLGE.Group.prototype.binaryPack=function(pack){
-	var num_children=0;
-	for(var i=0;i<this.children.length;i++){
-		var child=this.children[i];
-		if(child.className=="Object" || child.className=="Group"){
-			pack.addResource(child);
-			num_children++;
-		}
-	}
-	
-	var size=8+num_children*40;
-	
-	for(var i=0;i<fieldMap.length;i++){
-		var map=fieldMap[i];
-		var inc=GLGE.BYTE_SIZES[map[2]];
-		size=Math.ceil(size/inc)*inc
-		size+=inc*map[3];
-	}
-	
-	var buffer=new GLGE.BinaryBuffer(size);
-	buffer.write("Uint32",fieldMap.length);
-	
-	for(var i=0;i<fieldMap.length;i++){
-		var map=fieldMap[i];
-		if(map[3]>1){
-			var value=this[map[0]];
-			if(!value) value=[];
-			buffer.write(map[2],value,map[3]);
-		}else{
-			buffer.write(map[2],this[map[0]]);
-		}
-	}
-	buffer.write("Uint32",num_children);
-	for(var i=0;i<this.children.length;i++){
-		var child=this.children[i]
-		if(child.className=="Object" || child.className=="Group"){
-			buffer.write("String",child.uid,40);
-		}
-	}
-	return buffer;
-}
+        var buffer = new GLGE.BinaryBuffer(size);
+        buffer.write("Uint32", fieldMap.length);
 
-GLGE.Group.binaryUnPack=function(pack,data){
-	var buffer=pack.buffer;
-	var group=new GLGE.Group(data.uid);
-	var num_feilds=buffer.read("Uint32");
-	for(var i=0;i<num_feilds;i++){
-		var map=fieldMap[i];
-		if(map[3]>1){
-			var value=buffer.read(map[2],map[3]);
-			group["set"+map[1]](value);
-		}else{
-			group["set"+map[1]](buffer.read(map[2]));
-		}
-	}
-	var num_children=buffer.read("Uint32");
-	for(var i=0;i<num_children;i++){
-		var uid=buffer.read("String",40);
-		var child=pack.getResource(uid);
-		group.addChild(child);
-	}
-	
-	return group;
-}
+        for (var i = 0; i < fieldMap.length; i++) {
+            var map = fieldMap[i];
+            if (map[3] > 1) {
+                var value = this[map[0]];
+                if (!value) {
+                    value = [];
+                }
+                buffer.write(map[2], value, map[3]);
+            }
+            else {
+                buffer.write(map[2], this[map[0]]);
+            }
+        }
+        buffer.write("Uint32", num_children);
+        for (var i = 0; i < this.children.length; i++) {
+            var child = this.children[i];
+            if (child.className == "Object" || child.className == "Group") {
+                buffer.write("String", child.uid, 40);
+            }
+        }
+        return buffer;
+    };
 
-if(GLGE.Collada){
-	GLGE.Collada.binaryUnPack=GLGE.Group.binaryUnPack;
-	GLGE.Collada.prototype.binaryPack=GLGE.Group.prototype.binaryPack;
-}
+    GLGE.Group.binaryUnPack = function (pack, data) {
+        var buffer = pack.buffer;
+        var group = new GLGE.Group(data.uid);
+        var num_feilds = buffer.read("Uint32");
+        for (var i = 0; i < num_feilds; i++) {
+            var map = fieldMap[i];
+            if (map[3] > 1) {
+                var value = buffer.read(map[2], map[3]);
+                group["set" + map[1]](value);
+            }
+            else {
+                group["set" + map[1]](buffer.read(map[2]));
+            }
+        }
+        var num_children = buffer.read("Uint32");
+        for (var i = 0; i < num_children; i++) {
+            var uid = buffer.read("String", 40);
+            var child = pack.getResource(uid);
+            group.addChild(child);
+        }
 
+        return group;
+    };
 
-})(GLGE)
+    if (GLGE.Collada) {
+        GLGE.Collada.binaryUnPack = GLGE.Group.binaryUnPack;
+        GLGE.Collada.prototype.binaryPack = GLGE.Group.prototype.binaryPack;
+    }
+
+})(GLGE);

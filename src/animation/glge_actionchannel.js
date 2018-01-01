@@ -33,47 +33,46 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
-(function(GLGE){
+(function (GLGE) {
 
-
-/**
-* @class Class defining a channel of animation for an action
-* @param {string} uid a unique reference string for this object
-* @augments GLGE.QuickNotation
-* @augments GLGE.JSONLoader
-*/
-GLGE.ActionChannel=function(uid){
-	GLGE.Assets.registerAsset(this,uid);
-}
-GLGE.augment(GLGE.QuickNotation,GLGE.ActionChannel);
-GLGE.augment(GLGE.JSONLoader,GLGE.ActionChannel);
-/**
-* Sets the name/object of the bone channel
-* @param {string} name the name of the bone channel
-*/
-GLGE.ActionChannel.prototype.setTarget=function(object){
-	this.target=object;
-};
-/**
-* Sets the animation for this channel
-* @param {GLGE.AnimationVector} animation the animation vector for this channel
-*/
-GLGE.ActionChannel.prototype.setAnimation=function(animation){
-	this.animation=animation;
-};
-/**
-* Gets the name/object of the bone channel
-* @returns {string} the name of the bone channel
-*/
-GLGE.ActionChannel.prototype.getTarget=function(){
-	return this.target;
-};
-/**
-* Gets the animation vector for this channel
-* @returns {GLGE.AnimationVector} the animation vector for this channel
-*/
-GLGE.ActionChannel.prototype.getAnimation=function(){
-	return this.animation;
-};
+    /**
+     * @class Class defining a channel of animation for an action
+     * @param {string} uid a unique reference string for this object
+     * @augments GLGE.QuickNotation
+     * @augments GLGE.JSONLoader
+     */
+    GLGE.ActionChannel = function (uid) {
+        GLGE.Assets.registerAsset(this, uid);
+    };
+    GLGE.augment(GLGE.QuickNotation, GLGE.ActionChannel);
+    GLGE.augment(GLGE.JSONLoader, GLGE.ActionChannel);
+    /**
+     * Sets the name/object of the bone channel
+     * @param {string} name the name of the bone channel
+     */
+    GLGE.ActionChannel.prototype.setTarget = function (object) {
+        this.target = object;
+    };
+    /**
+     * Sets the animation for this channel
+     * @param {GLGE.AnimationVector} animation the animation vector for this channel
+     */
+    GLGE.ActionChannel.prototype.setAnimation = function (animation) {
+        this.animation = animation;
+    };
+    /**
+     * Gets the name/object of the bone channel
+     * @returns {string} the name of the bone channel
+     */
+    GLGE.ActionChannel.prototype.getTarget = function () {
+        return this.target;
+    };
+    /**
+     * Gets the animation vector for this channel
+     * @returns {GLGE.AnimationVector} the animation vector for this channel
+     */
+    GLGE.ActionChannel.prototype.getAnimation = function () {
+        return this.animation;
+    };
 
 })(GLGE);

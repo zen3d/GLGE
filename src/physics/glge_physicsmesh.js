@@ -32,94 +32,95 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * @author me@paulbrunt.co.uk
  */
 
-(function(GLGE){
+(function (GLGE) {
 
-/**
-* @class A wrapping class for jiglib triangle mesh
-* @augments GLGE.PhysicsAbstract
-*/
-GLGE.PhysicsMesh=function(uid){
-	this.jigLibObj=new jigLib.JTriangleMesh(null, 100, 0.1);
-	this.jigLibObj.GLGE=this;
-	this.jigLibObj.addEventListener(jigLib.JCollisionEvent.COLLISION, function(event){this.GLGE.fireEvent("collision",{obj:event.collisionBody.GLGE,impulse:event.collisionImpulse})});
-	this.dirty=true;
-	this.addEventListener("matrixUpdate",this.makeDirty);
-	this.addEventListener("childMatrixUpdate",this.makeDirty);
-	this.addEventListener("childAdded",this.makeDirty);
-	this.addEventListener("childRemoved",this.makeDirty);
-	
-	GLGE.PhysicsAbstract.call(this,uid);
-}
-GLGE.augment(GLGE.PhysicsAbstract,GLGE.PhysicsMesh);
+    /**
+     * @class A wrapping class for jiglib triangle mesh
+     * @augments GLGE.PhysicsAbstract
+     */
+    GLGE.PhysicsMesh = function (uid) {
+        this.jigLibObj = new jigLib.JTriangleMesh(null, 100, 0.1);
+        this.jigLibObj.GLGE = this;
+        this.jigLibObj.addEventListener(jigLib.JCollisionEvent.COLLISION, function (event) {
+            this.GLGE.fireEvent("collision", {obj: event.collisionBody.GLGE, impulse: event.collisionImpulse});
+        });
+        this.dirty = true;
+        this.addEventListener("matrixUpdate", this.makeDirty);
+        this.addEventListener("childMatrixUpdate", this.makeDirty);
+        this.addEventListener("childAdded", this.makeDirty);
+        this.addEventListener("childRemoved", this.makeDirty);
 
+        GLGE.PhysicsAbstract.call(this, uid);
+    };
+    GLGE.augment(GLGE.PhysicsAbstract, GLGE.PhysicsMesh);
 
-GLGE.PhysicsMesh.prototype.className="PhysicsMesh";
-/**
-* Forces and update of the triangle mesh
-*/
-GLGE.PhysicsMesh.prototype.forceUpdate=function(){
-	this.dirty=true;
-	return this;
-}
+    GLGE.PhysicsMesh.prototype.className = "PhysicsMesh";
+    /**
+     * Forces and update of the triangle mesh
+     */
+    GLGE.PhysicsMesh.prototype.forceUpdate = function () {
+        this.dirty = true;
+        return this;
+    };
 
-/**
-* flag to regenerate trimesh and redo octtree
-* @private
-*/
-GLGE.PhysicsMesh.prototype.makeDirty=function(e){
-	this.dirty=true;
-}
-/**
-* called before a system intergrate
-* @private
-*/
-GLGE.PhysicsMesh.prototype.preProcess=function(){
-	//recreate mesh and build octree
-	if(this.dirty){
-		var triangles=this.getTriangles();
-		this.jigLibObj.createMesh(triangles.verts, triangles.faces);
-		this.dirty=false;
-	}
-}
-/**
-* Creates the jiglib triangle arrays from the containing objects
-* @private
-*/
-GLGE.PhysicsMesh.prototype.getTriangles=function(){
-	var objs=this.getObjects();
-	var verts=[];
-	var faces=[];
-	for(var i=0;i<objs.length;i++){
-		if(objs[i].multimaterials){
-			var matrix=objs[i].getModelMatrix();
-			for(var j=0;j<objs[i].multimaterials.length;j++){
-				var mesh=objs[i].multimaterials[j].getMesh();
-				var vertcnt=verts.length;
-				if(mesh){
-					for(var k=0;k<mesh.positions.length;k=k+3){
-						var vert=[mesh.positions[k],mesh.positions[k+1],mesh.positions[k+2],1];
-						var v=GLGE.mulMat4Vec4(matrix,vert);
-						verts.push([v[0],v[1],v[2],1]);
-					}
-					var mfaces=mesh.faces.data
-					if(mfaces){
-						var len=mfaces.length;
-						len=((len/3)|0)*3;
-						for(var k=0;k<len;k=k+3){
-							faces.push([+mfaces[k]+vertcnt,+mfaces[k+1]+vertcnt,+mfaces[k+2]+vertcnt]);
-						}
-					}else{
-						for(var k=0;k<mesh.positions.length/3;k=k+3){
-							faces.push([k+vertcnt,k+1+vertcnt,k+2+vertcnt]);
-						}
-					}
-				}
-			}
-		}
-	}
-	
-	return {verts:verts,faces:faces};
-}
+    /**
+     * flag to regenerate trimesh and redo octtree
+     * @private
+     */
+    GLGE.PhysicsMesh.prototype.makeDirty = function (e) {
+        this.dirty = true;
+    };
+    /**
+     * called before a system intergrate
+     * @private
+     */
+    GLGE.PhysicsMesh.prototype.preProcess = function () {
+        //recreate mesh and build octree
+        if (this.dirty) {
+            var triangles = this.getTriangles();
+            this.jigLibObj.createMesh(triangles.verts, triangles.faces);
+            this.dirty = false;
+        }
+    };
+    /**
+     * Creates the jiglib triangle arrays from the containing objects
+     * @private
+     */
+    GLGE.PhysicsMesh.prototype.getTriangles = function () {
+        var objs = this.getObjects();
+        var verts = [];
+        var faces = [];
+        for (var i = 0; i < objs.length; i++) {
+            if (objs[i].multimaterials) {
+                var matrix = objs[i].getModelMatrix();
+                for (var j = 0; j < objs[i].multimaterials.length; j++) {
+                    var mesh = objs[i].multimaterials[j].getMesh();
+                    var vertcnt = verts.length;
+                    if (mesh) {
+                        for (var k = 0; k < mesh.positions.length; k = k + 3) {
+                            var vert = [mesh.positions[k], mesh.positions[k + 1], mesh.positions[k + 2], 1];
+                            var v = GLGE.mulMat4Vec4(matrix, vert);
+                            verts.push([v[0], v[1], v[2], 1]);
+                        }
+                        var mfaces = mesh.faces.data;
+                        if (mfaces) {
+                            var len = mfaces.length;
+                            len = ((len / 3) | 0) * 3;
+                            for (var k = 0; k < len; k = k + 3) {
+                                faces.push([+mfaces[k] + vertcnt, +mfaces[k + 1] + vertcnt, +mfaces[k + 2] + vertcnt]);
+                            }
+                        }
+                        else {
+                            for (var k = 0; k < mesh.positions.length / 3; k = k + 3) {
+                                faces.push([k + vertcnt, k + 1 + vertcnt, k + 2 + vertcnt]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
+        return {verts: verts, faces: faces};
+    };
 
 })(GLGE);
